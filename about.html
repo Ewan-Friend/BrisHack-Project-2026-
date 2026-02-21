@@ -185,65 +185,74 @@
       <div class="section">
         <h2>About NavSat</h2>
         <p>
-          NavSat is an interactive real-time satellite tracking visualization platform. Using advanced orbital mechanics 
-          and Three.js 3D rendering, users can explore the orbits of hundreds of active satellites across Earth.
-        </p>
-        <p>
-          Built with precision, accuracy, and a focus on geopolitical awareness, NavSat displays satellites color-coded 
-          by their nation of origin, providing insight into global space activity.
+          Navsat is a platform that allows users to interact with orbital satellites in real time. 
+          Using <a href="https://celestrak.org/">CelesTrak's </a>vast array of satellite telemetrics and <a href="https://threejs.org/"> Three.js </a> 3D rendering, users
+          explore the orbits of thousands of active satellites across our planet, where each satellite is colour coded by the country of origin
         </p>
       </div>
-
       <div class="section">
         <h2>Features</h2>
         <ul>
           <li>Real-time satellite position tracking with SGP4 propagation</li>
-          <li>Interactive 3D globe visualization using Three.js</li>
-          <li>Multiple satellite groups (Visual, Active, Stations, Weather, NOAA)</li>
-          <li>Detailed orbital parameters and statistics</li>
-          <li>Geopolitical color-coding by nation/agency</li>
-          <li>User location detection and visualization</li>
+          <li>Interactive 3D globe using Three.js</li>
+          <li>Plenty of satellite groups to select (Brightest, Stations, etc...)</li>
+          <li>Detailed orbital statistics for all the nerds</li>
+          <li>Colour coding by geographical location</li>
+          <li>User location visualisation</li>
           <li>Satellite-focused camera orbiting system</li>
-          <li>Orbital trail visualization with gradient effects</li>
+          <li>Gradient orbital trail for trajectory visualisation</li>
         </ul>
       </div>
 
       <div class="section">
-        <h2>Technology Stack</h2>
+        <h2>Tech Stack</h2>
         <ul>
-          <li>Frontend: Vite, Three.js, satellite.js</li>
+          <li>Frontend: Vite, Three.js, satellite.js, npm.js</li>
           <li>Backend: FastAPI, Supabase PostgreSQL</li>
           <li>Data Source: CelesTrak Orbital Database</li>
-          <li>3D Graphics: WebGL with advanced shader effects</li>
+          <li>Deployment: Vercel, Render</li>
         </ul>
       </div>
 
       <div class="section">
         <h2>How It Works</h2>
         <p>
-          NavSat fetches real-time TLE (Two-Line Element) data from CelesTrak, one of the most authoritative sources 
-          for satellite orbital information. Using the SGP4 propagation algorithm via satellite.js, we calculate precise 
-          satellite positions in real-time.
+          NavSat fetches real-time TLE (Two-Line Element) data from CelesTrak, a highly prestigious source for satellite orbital information
+          & telemetry. The data collected is ran through multiple orbital calculations such as an SGP4 propagation algorithm via satellite.js,
+          using this we can calculate satellite positions to a tee in real-time.
         </p>
         <p>
-          The visualization updates continuously as satellites orbit Earth, displaying accurate altitudes, velocities, 
-          and orbital parameters. Click on any satellite to focus the camera and view detailed statistics.
+            The visualisation continuously updates as the satellites orbit Earth, accurate altitudes, velocities and orbital parameters can be
+            found whenever you click on a satellite.
         </p>
       </div>
 
       <div class="section">
         <h2>Project Origins</h2>
         <p>
-          NavSat was developed for BrisHack 2026 as an exploration into the intersection of space technology, 
-          data visualization, and geopolitical awareness. The project demonstrates how modern web technologies 
-          can make complex space data accessible and engaging for everyone.
+          NavSat was developed for BrisHack 2026 by Ewan Friend, Michael Li, Kyrian Salas, Sam Bunting, Jacob Pankowski as an exploration of 
+          space technology. We have tried our best to make the interface as engaging as possible to our users, and  we hope you guys enjoy 
+          exploring the wonders of our orbital advancements as we have!
         </p>
+      </div>
+
+      <div class="section">
+        <h2>Fun Facts!</h2>
+        <ul>
+          <li>Real-time satellite position tracking with SGP4 propagation</li>
+          <li>Interactive 3D globe using Three.js</li>
+          <li>Plenty of satellite groups to select (Brightest, Stations, etc...)</li>
+          <li>Detailed orbital statistics for all the nerds</li>
+          <li>Colour coding by geographical location</li>
+          <li>User location visualisation</li>
+          <li>Satellite-focused camera orbiting system</li>
+          <li>Gradient orbital trail for trajectory visualisation</li>
+        </ul>
       </div>
     </main>
 
     <footer>
-      <p>NavSat © 2026. Real-time satellite tracking visualization.</p>
-      <p style="margin-top: 12px;">
+      <p>
         Data sourced from <a href="https://celestrak.org" target="_blank">CelesTrak</a> • 
         Orbit calculations via <a href="https://github.com/shashwatak/satellite-js" target="_blank">satellite.js</a>
       </p>
