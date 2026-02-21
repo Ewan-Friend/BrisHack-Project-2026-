@@ -4,7 +4,6 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
-import './test.js';
 import { setupPlanetVisuals } from './planetVisuals.js';
 import * as service from './api/satelliteService.js'
 
@@ -131,7 +130,7 @@ function buildSatelliteMeshes() {
 
 async function loadSatellites() {
     try {
-        const jsonArray = service.getAllSatellites();
+        const jsonArray = await service.getAllSatellites();
 
         jsonArray.forEach(satelliteObj => {
             satelliteDataMap[satelliteObj.OBJECT_ID] = satelliteObj;
