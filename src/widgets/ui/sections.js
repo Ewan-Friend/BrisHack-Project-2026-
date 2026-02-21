@@ -419,78 +419,69 @@ export function mountFooterControlsSection({
 }
 
 /**
- * Mounts the Playback Control section with a Digital Clock
+ * Mounts the Playback Control section under the Top Bar
  */
-export function mountPlaybackSection({ sidebarContent, createWidget, onMultiplierChange }) {
-  const { container, contentArea } = createWidget('Time Control');
-
+export function mountPlaybackSection({ onMultiplierChange, onJumpToPresent }) {
   const wrapper = document.createElement('div');
-  wrapper.style.display = 'flex';
-  wrapper.style.flexDirection = 'column';
-  wrapper.style.gap = '12px';
-  wrapper.style.padding = '8px 0';
+  wrapper.id = 'top-playback-controls';
+  // Styling for the floating container
+  Object.assign(wrapper.style, {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    padding: '12px',
+    background: 'rgba(10, 10, 10, 0.85)',
+    backdropFilter: 'blur(8px)',
+    border: '1px solid rgba(0, 255, 255, 0.2)',
+    borderRadius: '0 0 8px 8px',
+    width: '240px',
+    pointerEvents: 'auto'
+  });
 
-  // --- 1. Digital Clock Display ---
   const clockContainer = document.createElement('div');
-  clockContainer.className = 'playback-clock'; // Style this in styles.js
-  clockContainer.style.fontFamily = '"Courier New", Courier, monospace';
-  clockContainer.style.fontSize = '1.2rem';
+  clockContainer.style.fontFamily = '"Courier New", monospace';
+  clockContainer.style.fontSize = '1.1rem';
   clockContainer.style.color = '#00ffff';
   clockContainer.style.textAlign = 'center';
-  clockContainer.style.padding = '10px';
-  clockContainer.style.background = 'rgba(0, 0, 0, 0.3)';
-  clockContainer.style.borderRadius = '4px';
-  clockContainer.style.border = '1px solid #333';
-  clockContainer.textContent = '00:00:00';
 
-  // --- 2. Speed Label ---
-  const speedLabel = document.createElement('div');
-  speedLabel.innerHTML = `Speed: <span style="color: #007bff; font-weight: bold;">1x</span>`;
-  speedLabel.style.fontSize = '0.9rem';
-
-  // --- 3. The Slider ---
   const slider = document.createElement('input');
   slider.type = 'range';
   slider.min = '-50';
   slider.max = '50';
   slider.value = '1';
-  slider.step = '1';
   slider.style.width = '100%';
 
-  // --- 4. Reset Button ---
+  const btnContainer = document.createElement('div');
+  btnContainer.style.display = 'flex';
+  btnContainer.style.gap = '5px';
+
   const resetBtn = document.createElement('button');
-  resetBtn.textContent = 'Reset to Real-time';
-  resetBtn.style.cursor = 'pointer';
-  resetBtn.style.marginTop = '5px';
+  resetBtn.textContent = '1x';
+  resetBtn.className = 'ui-button';
+  resetBtn.style.flex = '1';
 
-  // --- Updates ---
-  const updateMultiplier = (val) => {
-    const multiplier = parseFloat(val);
-    speedLabel.innerHTML = `Speed: <span style="color: #007bff; font-weight: bold;">${multiplier}x</span>`;
-    if (typeof onMultiplierChange === 'function') {
-      onMultiplierChange(multiplier);
-    }
-  };
+  const jumpBtn = document.createElement('button');
+  jumpBtn.textContent = 'Jump to Now';
+  jumpBtn.className = 'ui-button';
+  jumpBtn.style.flex = '2';
 
-  // Clock Update Function (exposed so main.js can call it)
-  const updateClock = (timestamp) => {
-    const date = new Date(timestamp);
-    const timeStr = date.toLocaleTimeString('en-GB', { hour12: false });
-    const dateStr = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-    clockContainer.innerHTML = `<div>${timeStr}</div><div style="font-size: 0.7rem; color: #888;">${dateStr}</div>`;
-  };
-
-  // Listeners
-  slider.addEventListener('input', (e) => updateMultiplier(e.target.value));
+  // Event Listeners
+  slider.addEventListener('input', (e) => onMultiplierChange(parseFloat(e.target.value)));
   resetBtn.addEventListener('click', () => {
     slider.value = 1;
-    updateMultiplier(1);
+    onMultiplierChange(1);
   });
+  jumpBtn.addEventListener('click', () => onJumpToPresent());
 
-  wrapper.append(clockContainer, speedLabel, slider, resetBtn);
-  contentArea.appendChild(wrapper); 
-  sidebarContent.appendChild(container);
+  btnContainer.append(resetBtn, jumpBtn);
+  wrapper.append(clockContainer, slider, btnContainer);
 
-  // Return the update function so it can be used in the animation loop
-  return { updateClock };
+  return {
+    element: wrapper,
+    updateClock: (ts) => {
+      const date = new Date(ts);
+      clockContainer.innerHTML = `<div>${date.toLocaleTimeString('en-GB')}</div><div style="font-size: 0.7rem; color: #888;">${date.toLocaleDateString('en-GB')}</div>`;
+    },
+    setSlider: (val) => { slider.value = val; }
+  };
 }

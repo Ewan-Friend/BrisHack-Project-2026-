@@ -24,7 +24,8 @@ export class UIManager {
     onLimitChange,
     textSpeed,
     onTextSpeedChange,
-    onMultiplierChange
+    onMultiplierChange,
+    onJumpToPresent
   }) {
     this.postProcessing = postProcessing;
     this.environmentLayers = environmentLayers;
@@ -45,6 +46,7 @@ export class UIManager {
     this.isCollapsed = false;
 
     this.onMultiplierChange = onMultiplierChange;
+    this.onJumpToPresent = onJumpToPresent;
   }
 
   createWidget(title) {
@@ -81,13 +83,6 @@ export class UIManager {
       createWidget: (title) => this.createWidget(title),
       satelliteData: this.satelliteData,
       onSelectSatellite: this.onSelectSatellite,
-    });
-  }
-  mountPlaybackWidget() {
-    this.playbackControls = mountPlaybackSection({
-      sidebarContent: this.sidebarContent,
-      createWidget: (title) => this.createWidget(title),
-      onMultiplierChange: this.onMultiplierChange,
     });
   }
 
@@ -130,9 +125,17 @@ export class UIManager {
     ensureSidebarStyles();
     this.createSidebarContainer();
     
+
+    this.playbackControls = mountPlaybackSection({
+    onMultiplierChange: (val) => this.onMultiplierChange(val),
+    onJumpToPresent: () => { this.onJumpToPresent(); }
+    });
+
+  // Find your title container or top bar and append
+  const topBar = document.querySelector('.top-bar') || document.body;
+  topBar.appendChild(this.playbackControls.element);
     // Mount widgets in the desired visual order
     this.mountSatelliteSearchWidget();
-    this.mountPlaybackWidget();
     this.mountSatelliteSettingsWidget(); 
     this.mountEnvironmentLayersWidget();
     this.mountFooterControls();

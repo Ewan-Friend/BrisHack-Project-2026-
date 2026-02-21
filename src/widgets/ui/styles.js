@@ -623,28 +623,15 @@ canvas {
   display: block;
   margin-top: 0;
 }
-  // Add this inside the styleTag.textContent in styles.js
-.playback-slider {
-  -webkit-appearance: none;
-  background: #444;
-  height: 6px;
-  border-radius: 3px;
-  outline: none;
-  margin: 10px 0;
-}
-
-.playback-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 15px;
-  height: 15px;
-  background: #007bff;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: background .15s ease-in-out;
-}
-
 .playback-slider::-webkit-slider-thumb:hover {
   background: #0056b3;
+}
+  #top-playback-controls {
+  position: absolute;
+  top: 60px; /* Adjust based on your top-bar height */
+  left: 20px; /* Align with your NavSat title */
+  z-index: 1000;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.5);
 }
   `;
 

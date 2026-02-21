@@ -111,6 +111,9 @@ function initializeSidebar() {
     onMultiplierChange: (multiplier) => {
         timeMultiplier = multiplier;
     },
+    onJumpToPresent: () => {
+      virtualTimeMs = Date.now(); // Reset virtual clock to real world time
+    },
     onSelectSatellite: (sat) => {
       if (typeof selectSatellite === 'function') {
         selectSatellite(sat);
