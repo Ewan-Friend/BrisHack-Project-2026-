@@ -447,6 +447,7 @@ async function loadSatellites(group = "active") {
     satelliteLoadController = new AbortController();
 
     try {
+        initializeSidebar();
         clearSatellites(); // Start fresh
 
         while (loadedCount < currentSatelliteLimit) {
@@ -476,7 +477,6 @@ async function loadSatellites(group = "active") {
             await new Promise(r => requestAnimationFrame(r));
         }
 
-        initializeSidebar();
 
     } catch (error) {
         if (error?.name === 'AbortError') return;
