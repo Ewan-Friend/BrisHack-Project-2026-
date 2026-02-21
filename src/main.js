@@ -139,6 +139,8 @@ const cloudLayer = new THREE.Mesh(
     displacementMap: cloudAlphaMap,
     displacementScale: 0.004,
     displacementBias: -0.0015,
+    emissive: new THREE.Color(0xaec6e4),
+    emissiveIntensity: 0.035,
   })
 );
 scene.add(cloudLayer);
@@ -166,6 +168,11 @@ scene.add(new THREE.HemisphereLight(0x8fb8ff, 0x1f120a, 0.05));
 const sunLight = new THREE.DirectionalLight(0xfff1d6, 2.2);
 sunLight.position.set(5, 3, 5);
 scene.add(sunLight);
+
+// Soft moonlight from the opposite direction keeps clouds faintly visible at night.
+const moonLight = new THREE.DirectionalLight(0xb9cfff, 0.12);
+moonLight.position.copy(sunLight.position).multiplyScalar(-1);
+scene.add(moonLight);
 
 const rimLight = new THREE.DirectionalLight(0x9fc9ff, 0.08);
 rimLight.position.set(-4, -2, -3);
