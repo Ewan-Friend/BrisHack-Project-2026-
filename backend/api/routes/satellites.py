@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from typing import List
-from services.satellite_service import get_top100_satellites 
+from services.satellite_service import get_top100_satellites, get_satellite_by_id
 from models.satellite import SatelliteData
 from services.supabase_service import insert_satellite_data
 
@@ -26,10 +26,6 @@ def list_satellites():
     return get_top100_satellites()
 
 
-@router.get("/satellites/{satellite_id}", response_model=SatelliteData)
-def get_satellite(satellite_id: str):
-    all_sats = get_top100_satellites()
-    for sat in all_sats:
-        if sat.get("OBJECT_ID") == satellite_id:
-            return sat
-    raise HTTPException(status_code=404, detail="Satellite not found")
+@router.get("/satellites/{satellite_norad_id}", response_model=Satellite)
+def get_satellite(satellite_norad_id: str):
+    return get_satellite_by_id(satellite_norad_id)
