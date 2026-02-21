@@ -9,6 +9,7 @@ import { setupPlanetVisuals } from './planetVisuals.js';
 import { addUserLocationMarker } from './widgets/userLocationMarker.js';
 import { buildSatelliteMeshes } from './widgets/buildSatelliteMeshes.js';
 import { loadSatellites } from './widgets/loadSatellites.js';
+import { getSatelliteColor } from './widgets/getSatelliteColor.js';
 import * as service from './api/satelliteService.js'
 
 
@@ -122,59 +123,6 @@ const sharedTrailMaterial = new LineMaterial({
 sharedTrailMaterial.resolution.set(window.innerWidth, window.innerHeight);
 
 const sharedSatGeometry = new THREE.SphereGeometry(0.005,8,8)
-
-function getSatelliteColor(jsonData) {
-    const name = jsonData.OBJECT_NAME.toUpperCase();
-
-    // 1. Soviet / Russian (Red)
-    // COSMOS, SL- (Soviet launchers), INTERCOSMOS, RESURS, OKEAN, ZARYA (ISS module)
-    if (name.includes('COSMOS') || name.startsWith('SL-') ||
-        name.includes('INTERCOSMOS') || name.includes('RESURS') ||
-        name.includes('OKEAN') || name.includes('ZARYA')) {
-        return new THREE.Color(0xff2222);
-    }
-
-        // 2. Chinese (Gold / Yellow)
-    // CZ- (Long March), SHIJIAN, YAOGAN, HXMT, CSS (Chinese Space Station), SZ- (Shenzhou)
-    else if (name.startsWith('CZ-') || name.includes('SHIJIAN') ||
-        name.includes('YAOGAN') || name.includes('HXMT') ||
-        name.includes('CSS') || name.startsWith('SZ-')) {
-        return new THREE.Color(0xffcc00);
-    }
-
-        // 3. European Space Agency / Arianespace (Blue)
-    // ARIANE, ENVISAT, HELIOS
-    else if (name.includes('ARIANE') || name.includes('ENVISAT') || name.includes('HELIOS')) {
-        return new THREE.Color(0x3388ff);
-    }
-
-        // 4. Japanese (White)
-    // H-2A (Launcher), ALOS, ASTRO, AJISAI, MIDORI, XRISM
-    else if (name.includes('H-2A') || name.includes('ALOS') ||
-        name.includes('ASTRO') || name.includes('AJISAI') ||
-        name.includes('MIDORI') || name.includes('XRISM')) {
-        return new THREE.Color(0xffffff);
-    }
-
-        // 5. United States / NASA / Commercial US (Cyan/Light Blue)
-    // ATLAS, DELTA, THOR, TITAN, USA, OAO, SERT, SEASAT, AQUA, HST, ACS3
-    else if (name.includes('ATLAS') || name.includes('DELTA') ||
-        name.includes('THOR') || name.includes('TITAN') ||
-        name.startsWith('USA ') || name.includes('OAO') ||
-        name.includes('SERT') || name.includes('SEASAT') ||
-        name.includes('AQUA') || name.includes('HST') || name.includes('ACS3')) {
-        return new THREE.Color(0x00ffff);
-    }
-
-        // 6. Indian (Orange)
-    // GSLV
-    else if (name.includes('GSLV')) {
-        return new THREE.Color(0xff8800);
-    }
-
-    // Default Fallback for anything else (e.g., SAOCOM, ISIS, etc.) (Grey/Purple)
-    return new THREE.Color(0xcc55ff);
-}
 
 loadSatellites({
     satelliteDataMap,
