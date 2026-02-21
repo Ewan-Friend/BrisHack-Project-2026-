@@ -2,6 +2,26 @@ import * as THREE from 'three';
 import * as satellite from "satellite.js"
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
+const issJson = {
+    "OBJECT_NAME": "ATLAS CENTAUR 2",
+    "OBJECT_ID": "1963-047A",
+    "EPOCH": "2026-02-21T01:44:49.601184",
+    "MEAN_MOTION": 14.12016381,
+    "ECCENTRICITY": 0.05481215,
+    "INCLINATION": 30.357,
+    "RA_OF_ASC_NODE": 288.5064,
+    "ARG_OF_PERICENTER": 293.848,
+    "MEAN_ANOMALY": 60.5614,
+    "EPHEMERIS_TYPE": 0,
+    "CLASSIFICATION_TYPE": "U",
+    "NORAD_CAT_ID": 694,
+    "ELEMENT_SET_NO": 999,
+    "REV_AT_EPOCH": 12927,
+    "BSTAR": 0.00012889653,
+    "MEAN_MOTION_DOT": 0.00001171,
+    "MEAN_MOTION_DDOT": 0
+};
+
 // --- Renderer ---
 
 const canvas = document.getElementById('canvas');
