@@ -151,7 +151,7 @@ const calloutLayout = {
   initialized: false,
   p0x: 0,
   p0y: 0,
-  width: 220,
+  width: 320,
 };
 
 const calloutReveal = {
@@ -448,11 +448,70 @@ function updateSatellites() {
     }
 }
 
-function getSatelliteDetailsText(sat) {
+async function getSatelliteDetailsText(sat) {
   const distanceKm = Math.max(0, sat.altitudeKm || 0);
   const speedRatio = Math.max(0, (sat.speedKms || 0) / 12.8);
   const angleDeg = ((sat.angleDeg || 0) + 360) % 360;
-  return `Distance: ${Math.round(distanceKm)}km\nSpeed: ${speedRatio.toFixed(2)}x\nAngle: ${Math.round(angleDeg)}°`;
+  
+  const satData = satelliteDataMap[sat.id];
+  if (!satData) {
+    return `Distance: ${Math.round(distanceKm)}km\nSpeed: ${speedRatio.toFixed(2)}x\nAngle: ${Math.round(angleDeg)}°`;
+  }
+
+  // Calculate orbital period from mean motion (revolutions per day)
+  const periodMinutes = satData.MEAN_MOTION ? (1440 / satData.MEAN_MOTION) : 0;
+  const periodHours = periodMinutes / 60;
+
+  // Format epoch date (TLE epoch)
+  let epochDisplay = 'N/A';
+  if (satData.EPOCH) {
+    try {
+      const epochObj = new Date(satData.EPOCH);
+      const today = new Date();
+      const isToday = epochObj.toDateString() === today.toDateString();
+      
+      if (isToday) {
+        // Show time if today
+        epochDisplay = epochObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+      } else {
+        // Show date if not today
+        epochDisplay = epochObj.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+      }
+    } catch (e) {
+      epochDisplay = 'N/A';
+    }
+  }
+
+  const inclination = satData.INCLINATION ? satData.INCLINATION.toFixed(2) : 'N/A';
+  
+  // Format eccentricity with proper exponent notation
+  let eccentricity = 'N/A';
+  if (satData.ECCENTRICITY) {
+    const expStr = satData.ECCENTRICITY.toExponential(4);
+    // Convert "1.2345e-3" to "1.2345 × 10⁻³" using Unicode superscripts
+    eccentricity = expStr.replace(/e([+-]?\d+)/, (match, exp) => {
+      const num = parseInt(exp);
+      const superscripts = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+      const sign = num < 0 ? '⁻' : '';
+      const absNum = Math.abs(num).toString();
+      const supNum = absNum.split('').map(d => superscripts[parseInt(d)]).join('');
+      return ` × 10${sign}${supNum}`;
+    });
+  }
+  
+  const noradId = satData.NORAD_CAT_ID || 'N/A';
+
+  const details = `Distance: ${Math.round(distanceKm)}km
+Speed: ${speedRatio.toFixed(2)}x
+Angle: ${Math.round(angleDeg)}°
+
+Period: ${periodHours.toFixed(2)}h
+Inclination: ${inclination}°
+Eccentricity: ${eccentricity}
+NORAD ID: ${noradId}
+Last Updated: ${epochDisplay}`;
+
+  return details;
 }
 
 const impactFxLayer = new THREE.Group();
@@ -695,7 +754,7 @@ function updateSatelliteCallout() {
 
   const fullTitleText = calloutTyping.titleTarget || infoTitle.textContent || '';
   const measuredTitleWidth = Math.max(120, measureCalloutTitleWidth(fullTitleText));
-  const targetCalloutWidth = THREE.MathUtils.clamp(measuredTitleWidth + 36, 180, 300);
+  const targetCalloutWidth = THREE.MathUtils.clamp(measuredTitleWidth + 36, 280, 420);
 
   const targetP0x = THREE.MathUtils.clamp(satX - targetCalloutWidth - 120, 24, width - targetCalloutWidth - 24);
   const targetP0y = THREE.MathUtils.clamp(satY - 100, 28, height - 170);
@@ -838,7 +897,9 @@ function selectSatellite(sat) {
             startCalloutReveal();
             const satData = satelliteDataMap[sat.id];
             if (satData) {
-                startCalloutTyping(satData.OBJECT_NAME, getSatelliteDetailsText(sat));
+                getSatelliteDetailsText(sat).then(detailsText => {
+                    startCalloutTyping(satData.OBJECT_NAME, detailsText);
+                });
             }
         }
     };
