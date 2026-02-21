@@ -84,28 +84,62 @@ async def cache_satellites(group: str = Query(..., description="CelesTrak group 
 
 @router.get("/satellites")
 async def list_satellites(group: str = Query("visual", description="CelesTrak group (visual, active, stations, weather, etc.)")):
+    # 1. Query the database, joining orbital_elements
     db_response = supabase.table("satellites") \
-        .select("*, satellite_category_map!inner(category_id, categories!inner(name))") \
+        .select("*, satellite_category_map!inner(category_id, categories!inner(name)), orbital_elements(*)") \
         .eq("satellite_category_map.categories.name", group) \
         .execute()
 
+    # Helper function to flatten Supabase's response into the expected CelesTrak format
+    def format_db_data(data_list):
+        formatted = []
+        for row in data_list:
+            # Supabase might return orbital_elements as a list or a dict depending on your foreign key setup
+            orb_data = row.get("orbital_elements", [])
+            orb = orb_data[0] if isinstance(orb_data, list) and len(orb_data) > 0 else (orb_data if isinstance(orb_data, dict) else {})
+            
+            # Map lowercase DB columns to the uppercase keys the frontend SGP4 propagator expects
+            formatted.append({
+                "OBJECT_NAME": row.get("object_name"),
+                "OBJECT_ID": row.get("object_id"),
+                "NORAD_CAT_ID": row.get("norad_cat_id"),
+                "EPOCH": orb.get("epoch"),
+                "MEAN_MOTION": orb.get("mean_motion"),
+                "ECCENTRICITY": orb.get("eccentricity"),
+                "INCLINATION": orb.get("inclination"),
+                "RA_OF_ASC_NODE": orb.get("ra_of_asc_node"),
+                "ARG_OF_PERICENTER": orb.get("arg_of_pericenter"),
+                "MEAN_ANOMALY": orb.get("mean_anomaly"),
+                "EPHEMERIS_TYPE": orb.get("ephemeris_type"),
+                "CLASSIFICATION_TYPE": orb.get("classification_type"),
+                "ELEMENT_SET_NO": orb.get("element_set_no"),
+                "REV_AT_EPOCH": orb.get("rev_at_epoch"),
+                "BSTAR": orb.get("bstar"),
+                "MEAN_MOTION_DOT": orb.get("mean_motion_dot"),
+                "MEAN_MOTION_DDOT": orb.get("mean_motion_ddot")
+            })
+        return formatted
+
+    # 2. Check if we have data in the DB
     if db_response.data and len(db_response.data) > 0:
         print(f"Serving '{group}' from database.")
-        return db_response.data
+        return format_db_data(db_response.data)
 
+    # 3. If no data, trigger the cache logic
     print(f"Data for '{group}' not found. Fetching from CelesTrak...")
     cache_result = await cache_satellites(group=group)
     
     if cache_result.get("status") == "success":
+        # Re-query the DB now that it's populated
         updated_db = supabase.table("satellites") \
-            .select("*, satellite_category_map!inner(category_id, categories!inner(name))") \
+            .select("*, satellite_category_map!inner(category_id, categories!inner(name)), orbital_elements(*)") \
             .eq("satellite_category_map.categories.name", group) \
             .execute()
-        return updated_db.data
+        return format_db_data(updated_db.data)
     
     return {"message": "Failed to fetch data from API", "details": cache_result}
 
-
+    
 # Gets a single satellite by ID - Database First
 @router.get("/satellites/{satellite_norad_id}")
 async def get_satellite(satellite_norad_id: str):
