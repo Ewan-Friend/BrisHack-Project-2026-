@@ -77,6 +77,8 @@ function initializeSidebar() {
       }
     },
   });
+  
+  return sidebarManager;
 }
 
 // --- Controls ---
@@ -345,6 +347,7 @@ async function loadSatellites(group = "active") {
 // Initialize the group selector widget and the initial load
 setupGroupSelector({
     initialGroup: 'active',
+    mountTarget: null, // Will be set after sidebar initializes
     onGroupChange: async (newGroup) => {
         console.log(`Switching to group: ${newGroup}...`);
         clearSatellites();

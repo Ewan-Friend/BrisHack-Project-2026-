@@ -1,6 +1,6 @@
 // src/widgets/groupSelector.js
 
-export function setupGroupSelector({ initialGroup = 'active', onGroupChange }) {
+export function setupGroupSelector({ initialGroup = 'active', onGroupChange, mountTarget = null }) {
     const container = document.createElement('section');
     container.className = 'sidebar-widget tracked-group-widget';
 
@@ -50,7 +50,7 @@ export function setupGroupSelector({ initialGroup = 'active', onGroupChange }) {
 
     content.append(label, select);
     container.append(title, content);
-    document.body.appendChild(container);
+    (mountTarget || document.body).appendChild(container);
 
     return {
         container,
