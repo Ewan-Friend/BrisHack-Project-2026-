@@ -6,6 +6,7 @@ import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { setupPlanetVisuals } from './widgets/planetVisuals.js';
+import { setupSidebar } from './widgets/uiManager.js';
 import { addUserLocationMarker } from './widgets/userLocationMarker.js';
 import { centerToUserLocation } from './widgets/centerToUserLocation.js';
 import * as service from './api/satelliteService.js'
@@ -24,10 +25,22 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 // --- Scene & Camera ---
 
 const scene = new THREE.Scene();
+const centerLocationButton = document.getElementById('centerLocationButton');
 
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(0, 0, 3);
 const planetVisuals = setupPlanetVisuals({ scene, camera, renderer });
+setupSidebar({
+  postProcessing: {
+    cycleMode: () => planetVisuals.cyclePostFxMode(),
+    getActiveMode: () => planetVisuals.getActivePostFxMode(),
+  },
+  environmentLayers: {
+    cloudLayer: planetVisuals.cloudLayer,
+    atmosphereLayer: planetVisuals.atmosphereLayer,
+  },
+  centerLocationButton,
+});
 
 // --- Controls ---
 
@@ -59,7 +72,6 @@ const infoTitle = document.getElementById('infoTitle');
 const infoCard = document.getElementById('infoCard');
 const satelliteDetails = document.getElementById('satelliteDetails');
 const fireLaserButton = document.getElementById('fireLaserButton');
-const centerLocationButton = document.getElementById('centerLocationButton');
 const infoConnectorPath = document.getElementById('infoConnectorPath');
 const infoConnectorStart = document.getElementById('infoConnectorStart');
 
