@@ -29,7 +29,7 @@ export class UIManager {
   createSidebarContainer() {
     this.sidebarShell = createSidebarShell({
       sidebarId: SIDEBAR_ID,
-      initialCollapsed: false,
+      initialCollapsed: true,
       onToggleCollapsed: (collapsed) => {
         this.isCollapsed = collapsed;
       },
