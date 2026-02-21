@@ -419,16 +419,10 @@ export function mountFooterControlsSection({
 }
 
 /**
- * Mounts the Playback Control section
+ * Mounts the Playback Control section with a Digital Clock
  */
 export function mountPlaybackSection({ sidebarContent, createWidget, onMultiplierChange }) {
-  // Use 'contentArea' to match your widgetFactory.js exactly
   const { container, contentArea } = createWidget('Time Control');
-
-  if (!contentArea) {
-    console.error("Widget factory failed to return 'contentArea' element");
-    return;
-  }
 
   const wrapper = document.createElement('div');
   wrapper.style.display = 'flex';
@@ -436,10 +430,25 @@ export function mountPlaybackSection({ sidebarContent, createWidget, onMultiplie
   wrapper.style.gap = '12px';
   wrapper.style.padding = '8px 0';
 
+  // --- 1. Digital Clock Display ---
+  const clockContainer = document.createElement('div');
+  clockContainer.className = 'playback-clock'; // Style this in styles.js
+  clockContainer.style.fontFamily = '"Courier New", Courier, monospace';
+  clockContainer.style.fontSize = '1.2rem';
+  clockContainer.style.color = '#00ffff';
+  clockContainer.style.textAlign = 'center';
+  clockContainer.style.padding = '10px';
+  clockContainer.style.background = 'rgba(0, 0, 0, 0.3)';
+  clockContainer.style.borderRadius = '4px';
+  clockContainer.style.border = '1px solid #333';
+  clockContainer.textContent = '00:00:00';
+
+  // --- 2. Speed Label ---
   const speedLabel = document.createElement('div');
   speedLabel.innerHTML = `Speed: <span style="color: #007bff; font-weight: bold;">1x</span>`;
   speedLabel.style.fontSize = '0.9rem';
 
+  // --- 3. The Slider ---
   const slider = document.createElement('input');
   slider.type = 'range';
   slider.min = '-50';
@@ -448,11 +457,13 @@ export function mountPlaybackSection({ sidebarContent, createWidget, onMultiplie
   slider.step = '1';
   slider.style.width = '100%';
 
+  // --- 4. Reset Button ---
   const resetBtn = document.createElement('button');
   resetBtn.textContent = 'Reset to Real-time';
   resetBtn.style.cursor = 'pointer';
   resetBtn.style.marginTop = '5px';
 
+  // --- Updates ---
   const updateMultiplier = (val) => {
     const multiplier = parseFloat(val);
     speedLabel.innerHTML = `Speed: <span style="color: #007bff; font-weight: bold;">${multiplier}x</span>`;
@@ -461,15 +472,25 @@ export function mountPlaybackSection({ sidebarContent, createWidget, onMultiplie
     }
   };
 
+  // Clock Update Function (exposed so main.js can call it)
+  const updateClock = (timestamp) => {
+    const date = new Date(timestamp);
+    const timeStr = date.toLocaleTimeString('en-GB', { hour12: false });
+    const dateStr = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+    clockContainer.innerHTML = `<div>${timeStr}</div><div style="font-size: 0.7rem; color: #888;">${dateStr}</div>`;
+  };
+
+  // Listeners
   slider.addEventListener('input', (e) => updateMultiplier(e.target.value));
   resetBtn.addEventListener('click', () => {
     slider.value = 1;
     updateMultiplier(1);
   });
 
-  wrapper.append(speedLabel, slider, resetBtn);
-  
-  // Appending to contentArea fixes the undefined error
+  wrapper.append(clockContainer, speedLabel, slider, resetBtn);
   contentArea.appendChild(wrapper); 
   sidebarContent.appendChild(container);
+
+  // Return the update function so it can be used in the animation loop
+  return { updateClock };
 }

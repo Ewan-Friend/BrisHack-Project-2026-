@@ -1303,6 +1303,9 @@ window.addEventListener('resize', () => {
 
 renderer.setAnimationLoop(() => {
     updateSatellites();
+    if (sidebarManager) {
+        sidebarManager.updateSimulationClock(virtualTimeMs);
+    }
     planetVisuals.update();
     updateDestructiveEffects();
     updateSatelliteCallout();

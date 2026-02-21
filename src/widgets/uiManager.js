@@ -84,11 +84,17 @@ export class UIManager {
     });
   }
   mountPlaybackWidget() {
-    mountPlaybackSection({
+    this.playbackControls = mountPlaybackSection({
       sidebarContent: this.sidebarContent,
       createWidget: (title) => this.createWidget(title),
       onMultiplierChange: this.onMultiplierChange,
     });
+  }
+
+  updateSimulationClock(timestamp) {
+    if (this.playbackControls && this.playbackControls.updateClock) {
+      this.playbackControls.updateClock(timestamp);
+    }
   }
 
   // New method for rendering the limit input widget
