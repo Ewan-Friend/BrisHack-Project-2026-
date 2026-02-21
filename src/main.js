@@ -50,6 +50,12 @@ controls.dampingFactor = 0.05;
 controls.minDistance = 1.5;
 controls.maxDistance = 10;
 
+// --- Raycaster for click detection ---
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let selectedSatellite = null;
+let isAnimatingCamera = false;
+
 // --- Texture Loading ---
 // Color map: Blue Marble (sRGB)
 // Normal map: Tangent-space Earth normals (linear / no color space)
@@ -271,6 +277,117 @@ function updateISS() {
     // Tell Three.js the trail has been updated
     trailGeometry.setPositions(flatPositionsArray);
 }
+
+// --- Click handling for satellite selection ---
+function onCanvasClick(event) {
+  // Calculate mouse position in normalized device coordinates
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+  // Update raycaster
+  raycaster.setFromCamera(mouse, camera);
+
+  // Check if satellite is clicked
+  const intersects = raycaster.intersectObject(issMesh, true);
+
+  console.log('Click detected. Intersects:', intersects.length, 'Selected:', selectedSatellite);
+
+  if (intersects.length > 0 && !selectedSatellite) {
+    console.log('Selecting satellite');
+    selectSatellite();
+  } else if (selectedSatellite) {
+    console.log('Deselecting satellite');
+    deselectSatellite();
+  }
+}
+
+function selectSatellite() {
+  selectedSatellite = issMesh;
+  isAnimatingCamera = true;
+  controls.enabled = false;
+
+  // Show info box
+  const infoBox = document.getElementById('infoBox');
+  const satelliteDetails = document.getElementById('satelliteDetails');
+  satelliteDetails.textContent = issJson.OBJECT_NAME + '\n\nNORAD ID: ' + issJson.NORAD_CAT_ID;
+  infoBox.classList.add('visible');
+
+  // Animate camera to focus on satellite
+  const targetDistance = 2;
+  const duration = 1000; // milliseconds
+  const startTime = Date.now();
+
+  const startPosition = camera.position.clone();
+  const targetPosition = issMesh.position.clone().normalize().multiplyScalar(targetDistance);
+
+  const animateCamera = () => {
+    const elapsed = Date.now() - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+
+    // Smooth easing function
+    const easeProgress = 1 - Math.pow(1 - progress, 3);
+
+    camera.position.lerpVectors(startPosition, targetPosition, easeProgress);
+    camera.lookAt(issMesh.position);
+
+    if (progress < 1) {
+      requestAnimationFrame(animateCamera);
+    } else {
+      isAnimatingCamera = false;
+    }
+  };
+
+  animateCamera();
+}
+
+function deselectSatellite() {
+  selectedSatellite = null;
+  isAnimatingCamera = true;
+  controls.enabled = false;
+
+  // Hide info box
+  const infoBox = document.getElementById('infoBox');
+  infoBox.classList.remove('visible');
+
+  // Animate camera back to normal distance (zoom out)
+  const duration = 1000; // milliseconds
+  const startTime = Date.now();
+
+  const startPosition = camera.position.clone();
+  const satelliteDirection = issMesh.position.clone().normalize();
+  const targetPosition = satelliteDirection.multiplyScalar(3); // Normal viewing distance
+
+  const animateCamera = () => {
+    const elapsed = Date.now() - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+
+    // Smooth easing function
+    const easeProgress = 1 - Math.pow(1 - progress, 3);
+
+    camera.position.lerpVectors(startPosition, targetPosition, easeProgress);
+    camera.lookAt(issMesh.position);
+
+    if (progress < 1) {
+      requestAnimationFrame(animateCamera);
+    } else {
+      isAnimatingCamera = false;
+      controls.enabled = true;
+    }
+  };
+
+  animateCamera();
+}
+
+// Add click event listener
+document.addEventListener('click', (event) => {
+  // Check if click is on the info box
+  const infoBox = document.getElementById('infoBox');
+  if (infoBox && infoBox.contains(event.target)) {
+    return; // Don't deselect if clicking on the box
+  }
+  onCanvasClick(event);
+});
 
 // --- Resize Handling ---
 
