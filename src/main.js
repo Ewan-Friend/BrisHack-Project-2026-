@@ -400,17 +400,19 @@ function clearSatellites() {
     activeSatellites.length = 0;
 }
 
-async function loadSatellites(group = "active", limit=1000) {
-        const loadToken = ++satelliteLoadToken;
+async function loadSatellites(group = "active") {
+    const loadToken = ++satelliteLoadToken;
     if (satelliteLoadController) {
         satelliteLoadController.abort();
     }
     satelliteLoadController = new AbortController();
 
     try {
-        const limitedArray = await service.getAllSatellites(group, limit, {
+        // Pass the global currentSatelliteLimit to the service
+        const limitedArray = await service.getAllSatellites(group, currentSatelliteLimit, {
             signal: satelliteLoadController.signal,
         });
+        
         if (loadToken !== satelliteLoadToken) {
             return;
         }
@@ -420,7 +422,9 @@ async function loadSatellites(group = "active", limit=1000) {
             satelliteDataMap[satelliteObj.OBJECT_ID] = satelliteObj;
         }
 
-        console.log(`Successfully rendered ${limitedArray.length} satellites (out of ${fullGroupCache.length} downloaded).`);
+        // Removed the outdated fullGroupCache reference
+        console.log(`Successfully fetched and rendered ${limitedArray.length} satellites.`);
+        
         buildSatelliteMeshes();
         initializeSidebar();
 
@@ -436,12 +440,12 @@ async function loadSatellites(group = "active", limit=1000) {
     }
 }
 
-// Ensure the dropdown clears the cache so it triggers a fresh API call
+// Cleaned up the dropdown config to remove the old cache clearing array
 groupSelectorConfig = {
     initialGroup: 'active',
     onGroupChange: async (newGroup) => {
         clearSatellites();
-        fullGroupCache = []; // Clear cache to force a new download
+        currentGroup = newGroup; // Keep the global group state updated
         await loadSatellites(newGroup);
     }
 };
