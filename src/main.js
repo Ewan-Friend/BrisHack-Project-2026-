@@ -49,7 +49,7 @@ controls.maxDistance = 10;
 
 // --- Texture Loading ---
 // Color map: Blue Marble (sRGB)
-// Normal map: Surface elevation detail (linear)
+// Normal map: Tangent-space Earth normals (linear / no color space)
 // Specular map: Used as inverse roughness — oceans are shiny, land is matte (linear)
 
 const loader = new THREE.TextureLoader();
@@ -57,9 +57,13 @@ const loader = new THREE.TextureLoader();
 const colorMap = loader.load('https://unpkg.com/three-globe@2.35.0/example/img/earth-blue-marble.jpg');
 colorMap.colorSpace = THREE.SRGBColorSpace;
 
-const normalMap = loader.load('https://unpkg.com/three-globe@2.35.0/example/img/earth-topology.png');
+const normalMap = loader.load('https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_normal_2048.jpg');
+normalMap.colorSpace = THREE.NoColorSpace;
 
 const specularMap = loader.load('https://unpkg.com/three-globe@2.35.0/example/img/earth-water.png');
+
+const cityLightsMap = loader.load('https://unpkg.com/three-globe@2.35.0/example/img/earth-night.jpg');
+cityLightsMap.colorSpace = THREE.SRGBColorSpace;
 
 // --- Globe (PBR Material) ---
 // metalness kept low — Earth is mostly dielectric
@@ -71,12 +75,39 @@ const globe = new THREE.Mesh(
   new THREE.MeshStandardMaterial({
     map: colorMap,
     normalMap: normalMap,
-    normalScale: new THREE.Vector2(0.8, 0.8),
+    normalScale: new THREE.Vector2(0.25, 0.25),
     roughnessMap: specularMap,
-    roughness: 1.0,
-    metalness: 0.1,
+    roughness: 0.9,
+    metalness: 0.02,
+    emissive: new THREE.Color(0xffffff),
+    emissiveMap: cityLightsMap,
+    emissiveIntensity: 1.6,
   })
 );
+globe.material.onBeforeCompile = (shader) => {
+  shader.fragmentShader = shader.fragmentShader.replace(
+    '#include <roughnessmap_fragment>',
+    `
+    float roughnessFactor = roughness;
+    #ifdef USE_ROUGHNESSMAP
+      vec4 texelRoughness = texture2D( roughnessMap, vRoughnessMapUv );
+      // Invert the green channel so water (white) becomes smooth (0.0) and land (black) becomes rough (1.0)
+      // Clamp slightly so ocean is not a perfect mirror.
+      roughnessFactor *= clamp(1.0 - texelRoughness.g, 0.1, 1.0);
+    #endif
+    `
+  );
+
+  shader.fragmentShader = shader.fragmentShader.replace(
+    '#include <emissivemap_fragment>',
+    `#include <emissivemap_fragment>
+    #if NUM_DIR_LIGHTS > 0
+      float sunNdotL = dot(normal, directionalLights[0].direction);
+      float nightMask = 1.0 - smoothstep(-0.15, 0.08, sunNdotL);
+      totalEmissiveRadiance *= pow(nightMask, 1.5);
+    #endif`
+  );
+};
 scene.add(globe);
 
 // --- Starfield ---
@@ -96,13 +127,16 @@ const stars = new THREE.Points(
 scene.add(stars);
 
 // --- Lighting ---
-// Ambient provides soft fill; directional acts as the sun
+// Hemisphere approximates sky/ground bounce while directional acts as the sun.
+scene.add(new THREE.HemisphereLight(0x8fb8ff, 0x1f120a, 0.05));
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.3));
-
-const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
+const sunLight = new THREE.DirectionalLight(0xfff1d6, 2.2);
 sunLight.position.set(5, 3, 5);
 scene.add(sunLight);
+
+const rimLight = new THREE.DirectionalLight(0x9fc9ff, 0.08);
+rimLight.position.set(-4, -2, -3);
+scene.add(rimLight);
 
 // Converting JSON to a Satellite Record
 const satrec = satellite.json2satrec(issJson);
@@ -117,7 +151,7 @@ const trailLine = new THREE.Line(trailGeometry, trailMaterial);
 scene.add(trailLine);
 
 const issMesh = new THREE.Mesh(
-    new THREE.SphereGeometry(0.01, 16, 16), // Made slightly larger to find it easier
+    new THREE.SphereGeometry(0.01, 16, 16),
     new THREE.MeshBasicMaterial({ color: 0xff0000 })
 );
 scene.add(issMesh);
@@ -137,18 +171,14 @@ function updateISS() {
         const lat = positionGd.latitude;
         const alt = positionGd.height;
 
-        // Radius = Earth(1) + Altitude.
-        // We multiply alt by a factor if we want to "exaggerate" the height for visibility
         const r = 1 + (alt / 6371);
 
         const x = r * Math.cos(lat) * Math.cos(lon);
         const y = r * Math.sin(lat);
-        const z = r * Math.cos(lat) * Math.sin(-lon); // Negative lon matches most textures
+        const z = r * Math.cos(lat) * Math.sin(-lon);
 
         issMesh.position.set(x, y, z);
 
-        // --- Update Trail ---
-        // Shift existing points or just add a new one every few frames
         trailVertices[trailIndex * 3] = x;
         trailVertices[trailIndex * 3 + 1] = y;
         trailVertices[trailIndex * 3 + 2] = z;
