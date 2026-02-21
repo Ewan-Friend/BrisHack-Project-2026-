@@ -261,6 +261,55 @@ export function ensureSidebarStyles() {
       border-color: rgba(200, 227, 255, 0.82);
     }
 
+    .tracked-group-widget {
+      --panel-text: #dceafe;
+      --card-bg: linear-gradient(160deg, rgba(15, 25, 46, 0.88), rgba(10, 19, 35, 0.6));
+      --card-border: rgba(162, 197, 255, 0.22);
+      position: fixed;
+      top: 64px;
+      left: 16px;
+      width: min(260px, calc(100vw - 32px));
+      z-index: 19;
+    }
+
+    .tracked-group-widget__content {
+      gap: 8px;
+    }
+
+    .tracked-group-widget__label {
+      color: #e4f0ff;
+      font-family: "Electrolize", "Segoe UI", sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .tracked-group-widget__select {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid rgba(174, 207, 255, 0.34);
+      border-radius: 12px;
+      background: rgba(6, 14, 28, 0.72);
+      color: #e7f0ff;
+      padding: 8px 10px;
+      font-family: "Electrolize", "Segoe UI", sans-serif;
+      font-size: 13px;
+      outline: none;
+      cursor: pointer;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .tracked-group-widget__select:focus {
+      border-color: rgba(124, 184, 255, 0.92);
+      box-shadow: 0 0 0 3px rgba(88, 152, 232, 0.16);
+    }
+
+    .tracked-group-widget__select option {
+      background: #081222;
+      color: #e7f0ff;
+    }
+
     #${SIDEBAR_ID} #centerLocationButton {
       position: static;
       inset: auto;
@@ -315,6 +364,12 @@ export function ensureSidebarStyles() {
         width: 34px;
         height: 34px;
         border-radius: 10px;
+      }
+
+      .tracked-group-widget {
+        top: 44px;
+        left: 10px;
+        width: min(230px, calc(100vw - 20px));
       }
     }
   `;
