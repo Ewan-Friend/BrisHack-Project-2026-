@@ -9,12 +9,13 @@ router = APIRouter()
 
 
 @router.get("/satellites/cache")    
-@router.post("/satellites/cache")
+@router.api_route("/satellites/cache", methods=["GET", "POST"])
 async def cache_satellites(group: str = Query(..., description="CelesTrak group name")):
     fetched_data = get_satellites_by_group(group)
     
     if not fetched_data:
-        return {"message": "No data found for this group"}
+        return {"status": "error", "message": "No data found for this group"}
+
     cat_response = supabase.table("categories").upsert(
         {"name": group}, on_conflict="name"
     ).execute()
@@ -26,7 +27,7 @@ async def cache_satellites(group: str = Query(..., description="CelesTrak group 
         category_id = cat_response.data[0]['id']
 
     sats_to_upsert = []
-    orbital_to_insert = []
+    orbital_to_upsert = []
     mapping_to_upsert = []
 
     for sat in fetched_data:
@@ -42,7 +43,7 @@ async def cache_satellites(group: str = Query(..., description="CelesTrak group 
             "category_id": category_id
         })
 
-        orbital_to_insert.append({
+        orbital_to_upsert.append({
             "norad_cat_id": norad_id,
             "epoch": sat["EPOCH"],
             "mean_motion": sat["MEAN_MOTION"],
@@ -61,29 +62,52 @@ async def cache_satellites(group: str = Query(..., description="CelesTrak group 
         })
 
     try:
-        for i in range(0, len(sats_to_upsert), 500):
+        chunk_size = 100 
+        for i in range(0, len(sats_to_upsert), chunk_size):
             supabase.table("satellites").upsert(
-                sats_to_upsert[i:i+500], on_conflict="norad_cat_id"
+                sats_to_upsert[i:i+chunk_size], on_conflict="norad_cat_id"
             ).execute()
             
             supabase.table("satellite_category_map").upsert(
-                mapping_to_upsert[i:i+500], on_conflict="norad_cat_id,category_id"
+                mapping_to_upsert[i:i+chunk_size], on_conflict="norad_cat_id,category_id"
             ).execute()
             
-            supabase.table("orbital_elements").insert(
-                orbital_to_insert[i:i+500]
+            supabase.table("orbital_elements").upsert(
+                orbital_to_upsert[i:i+chunk_size], on_conflict="norad_cat_id"
             ).execute()
 
         return {"status": "success", "satellites_updated": len(fetched_data)}
         
     except Exception as e:
+        print(f"Cache Error: {str(e)}")
         return {"status": "error", "details": str(e)}
 
 
-# Default group is visual (top 100)
-@router.get("/satellites", response_model=List[SatelliteData])
-def list_satellites(group: Optional[str] = Query("visual", description="CelesTrak group (visual, active, stations, weather, etc.)")):
-    return get_satellites_by_group(group)
+@router.get("/satellites")
+async def list_satellites(group: str = Query("visual", description="CelesTrak group (visual, active, stations, weather, etc.)")):
+    db_response = supabase.table("satellites") \
+        .select("*, satellite_category_map!inner(category_id, categories!inner(name))") \
+        .eq("satellite_category_map.categories.name", group) \
+        .execute()
+
+    # 2. If data exists in DB, return it immediately
+    if db_response.data and len(db_response.data) > 0:
+        print(f"Serving '{group}' from database.")
+        return db_response.data
+
+    # 3. If no data, trigger the cache logic (fetch from API and save)
+    print(f"Data for '{group}' not found. Fetching from CelesTrak...")
+    cache_result = await cache_satellites(group=group)
+    
+    if cache_result.get("status") == "success":
+        # Re-query the DB now that it's populated
+        updated_db = supabase.table("satellites") \
+            .select("*, satellite_category_map!inner(category_id, categories!inner(name))") \
+            .eq("satellite_category_map.categories.name", group) \
+            .execute()
+        return updated_db.data
+    
+    return {"message": "Failed to fetch data from API", "details": cache_result}
 
 
 # Gets a single satellite based by on id
