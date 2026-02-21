@@ -1,12 +1,11 @@
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    celeste_api_key: str = ""  # Placeholder for Celeste API key
-    database_url: str = "sqlite:///./satellites.db"  # Placeholder for DB
-    supabase_url: str = ""  # Placeholder for Supabase URL
-    supabase_api_key: str = ""  # Placeholder for Supabase API key
+    supabase_url: str
+    supabase_api_key: str
 
     class Config:
         env_file = ".env"
+        env_file_encoding = "utf-8"
 
 settings = Settings()
