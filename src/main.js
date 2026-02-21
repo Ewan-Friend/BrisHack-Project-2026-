@@ -11,6 +11,7 @@ import { addUserLocationMarker } from './widgets/userLocationMarker.js';
 import { centerToUserLocation } from './widgets/centerToUserLocation.js';
 import { setupGroupSelector } from './widgets/groupSelector.js';
 import { ensureTopBarStyles } from './widgets/ui/styles.js';
+import { setupStormMarkers } from './widgets/stormMarkers.js';
 import * as service from './api/satelliteService.js'
 
 // Apply styles
@@ -32,6 +33,11 @@ const scene = new THREE.Scene();
 const centerLocationButton = document.getElementById('centerLocationButton');
 const defaultCameraPosition = new THREE.Vector3(0, 0, 3);
 const defaultCameraTarget = new THREE.Vector3(0, 0, 0);
+
+let stormSystem = null;
+setupStormMarkers(scene).then(system => {
+    stormSystem = system;
+});
 
 function hasValidLocation(value) {
   return Number.isFinite(value?.latitude) && Number.isFinite(value?.longitude);
@@ -949,6 +955,7 @@ renderer.setAnimationLoop(() => {
     planetVisuals.update();
     updateDestructiveEffects();
     updateSatelliteCallout();
+    stormSystem.update();
     controls.update();
     planetVisuals.render();
 });
