@@ -9,8 +9,8 @@ import { setupPlanetVisuals } from './widgets/planetVisuals.js';
 import { setupSidebar } from './widgets/uiManager.js';
 import { addUserLocationMarker } from './widgets/userLocationMarker.js';
 import { centerToUserLocation } from './widgets/centerToUserLocation.js';
+import { setupGroupSelector } from './widgets/groupSelector.js'; // IMPORT NEW WIDGET
 import * as service from './api/satelliteService.js'
-
 
 // --- Renderer ---
 
@@ -75,7 +75,7 @@ const mouse = new THREE.Vector2();
 let selectedSatellite = null;
 const isAnimatingCameraRef = { current: false };
 
-// --- User location --- epic formatted comment
+// --- User location ---
 let location = null
 setCenterLocationButtonEnabled(false);
 getUserLocation().then(loc => {
@@ -87,7 +87,7 @@ getUserLocation().then(loc => {
   setCenterLocationButtonEnabled(false);
   console.warn('Location access denied or failed:', err);
 });
-console.log('location:', location);
+
 const projectedSatelliteScreen = new THREE.Vector3();
 
 const infoBox = document.getElementById('infoBox');
@@ -147,8 +147,8 @@ const satelliteDataMap = {};
 const activeSatellites = [];
 
 // Creating the visual marker (the red dot)
-const TRAIL_LENGTH_MINUTES = 3; // How long you want the tail to be
-const TRAIL_POINTS = 5; // Smoothness of the tail
+const TRAIL_LENGTH_MINUTES = 3; 
+const TRAIL_POINTS = 5; 
 
 const initialPositions = [];
 for (let i = 0; i < TRAIL_POINTS; i++) {
@@ -156,9 +156,9 @@ for (let i = 0; i < TRAIL_POINTS; i++) {
 }
 
 const sharedTrailMaterial = new LineMaterial({
-    color: 0xffffff, // Use white so vertex colors show through correctly
-    linewidth: 4,    // CHANGE THIS NUMBER TO MAKE IT WIDER/THINNER
-    vertexColors: true, // Necessary for gradient
+    color: 0xffffff, 
+    linewidth: 4,    
+    vertexColors: true, 
     blending: THREE.AdditiveBlending,
     transparent: true,
     depthWrite: false,
@@ -170,54 +170,29 @@ sharedTrailMaterial.resolution.set(window.innerWidth, window.innerHeight);
 
 function getSatelliteColor(jsonData) {
     const name = jsonData.OBJECT_NAME.toUpperCase();
-
-    // 1. Soviet / Russian (Red)
-    // COSMOS, SL- (Soviet launchers), INTERCOSMOS, RESURS, OKEAN, ZARYA (ISS module)
     if (name.includes('COSMOS') || name.startsWith('SL-') ||
         name.includes('INTERCOSMOS') || name.includes('RESURS') ||
         name.includes('OKEAN') || name.includes('ZARYA')) {
         return new THREE.Color(0xff2222);
-    }
-
-        // 2. Chinese (Gold / Yellow)
-    // CZ- (Long March), SHIJIAN, YAOGAN, HXMT, CSS (Chinese Space Station), SZ- (Shenzhou)
-    else if (name.startsWith('CZ-') || name.includes('SHIJIAN') ||
+    } else if (name.startsWith('CZ-') || name.includes('SHIJIAN') ||
         name.includes('YAOGAN') || name.includes('HXMT') ||
         name.includes('CSS') || name.startsWith('SZ-')) {
         return new THREE.Color(0xffcc00);
-    }
-
-        // 3. European Space Agency / Arianespace (Blue)
-    // ARIANE, ENVISAT, HELIOS
-    else if (name.includes('ARIANE') || name.includes('ENVISAT') || name.includes('HELIOS')) {
+    } else if (name.includes('ARIANE') || name.includes('ENVISAT') || name.includes('HELIOS')) {
         return new THREE.Color(0x3388ff);
-    }
-
-        // 4. Japanese (White)
-    // H-2A (Launcher), ALOS, ASTRO, AJISAI, MIDORI, XRISM
-    else if (name.includes('H-2A') || name.includes('ALOS') ||
+    } else if (name.includes('H-2A') || name.includes('ALOS') ||
         name.includes('ASTRO') || name.includes('AJISAI') ||
         name.includes('MIDORI') || name.includes('XRISM')) {
         return new THREE.Color(0xffffff);
-    }
-
-        // 5. United States / NASA / Commercial US (Cyan/Light Blue)
-    // ATLAS, DELTA, THOR, TITAN, USA, OAO, SERT, SEASAT, AQUA, HST, ACS3
-    else if (name.includes('ATLAS') || name.includes('DELTA') ||
+    } else if (name.includes('ATLAS') || name.includes('DELTA') ||
         name.includes('THOR') || name.includes('TITAN') ||
         name.startsWith('USA ') || name.includes('OAO') ||
         name.includes('SERT') || name.includes('SEASAT') ||
-        name.includes('AQUA') || name.includes('HST') || name.includes('ACS3')) {
+        name.includes('AQUA') || name.includes('HST') || name.includes('ACS3') || name.includes('STARLINK')) {
         return new THREE.Color(0x00ffff);
-    }
-
-        // 6. Indian (Orange)
-    // GSLV
-    else if (name.includes('GSLV')) {
+    } else if (name.includes('GSLV')) {
         return new THREE.Color(0xff8800);
     }
-
-    // Default Fallback for anything else (e.g., SAOCOM, ISIS, etc.) (Grey/Purple)
     return new THREE.Color(0xcc55ff);
 }
 
@@ -225,12 +200,9 @@ function buildSatelliteMeshes() {
     const satKeys = Object.keys(satelliteDataMap);
     const numSatellites = satKeys.length;
 
-    // 1. Create the InstancedMesh (Geometry, Material, Count)
     satInstancedMesh = new THREE.InstancedMesh(sharedSatGeometry, sharedSatMaterial, numSatellites);
     satInstancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-
     satInstancedMesh.frustumCulled = false;
-
     scene.add(satInstancedMesh);
 
     const renderTrails = numSatellites < RENDER_TRAILS_THRESHOLD;
@@ -240,13 +212,11 @@ function buildSatelliteMeshes() {
         const satrec = satellite.json2satrec(jsonData);
         const satColor = getSatelliteColor(jsonData);
 
-        // 2. Set the geopolitical color for this specific instance
         satInstancedMesh.setColorAt(index, satColor);
 
         let trailGeo = null;
         let trailLine = null;
 
-        // 3. Only build heavy Line2 trails if we have a small number of satellites
         if (renderTrails) {
             const trailColors = [];
             const colorHelper = new THREE.Color();
@@ -267,46 +237,80 @@ function buildSatelliteMeshes() {
         activeSatellites.push({
             id: satId,
             satrec: satrec,
-            index: index, // Store its index in the InstancedMesh
+            index: index, 
             trailGeometry: trailGeo,
+            trailLine: trailLine, // Store the line so we can delete it later
             altitudeKm: 0,
             speedKms: 0,
             angleDeg: 0
         });
     });
 
-    // Tell Three.js we updated the colors
     satInstancedMesh.instanceColor.needsUpdate = true;
 }
 
-async function loadSatellites() {
+// --- NEW CLEAR LOGIC ---
+function clearSatellites() {
+    clearSelectedSatelliteState();
+
+    if (satInstancedMesh) {
+        scene.remove(satInstancedMesh);
+        satInstancedMesh.dispose();
+        satInstancedMesh = null;
+    }
+
+    activeSatellites.forEach(sat => {
+        if (sat.trailLine) {
+            scene.remove(sat.trailLine);
+            sat.trailGeometry.dispose();
+        }
+    });
+
+    // Wipe the arrays for the new fetch
+    for (const prop of Object.getOwnPropertyNames(satelliteDataMap)) {
+        delete satelliteDataMap[prop];
+    }
+    activeSatellites.length = 0;
+}
+
+async function loadSatellites(group = "active") {
     try {
-        const jsonArray = await service.getAllSatellites("active");
+        const jsonArray = await service.getAllSatellites(group);
 
         jsonArray.forEach(satelliteObj => {
             satelliteDataMap[satelliteObj.OBJECT_ID] = satelliteObj;
         });
 
-        console.log(`Successfully loaded ${jsonArray.length} satellites.`);
+        console.log(`Successfully loaded ${jsonArray.length} satellites for group: ${group}.`);
         buildSatelliteMeshes();
 
     } catch (error) {
-        console.error("Failed to load satellites. Check if your Python server is running and CORS is enabled.", error);
+        console.error("Failed to load satellites.", error);
     }
 }
 
-loadSatellites();
+// Initialize the group selector widget and the initial load
+setupGroupSelector({
+    initialGroup: 'active',
+    onGroupChange: async (newGroup) => {
+        console.log(`Switching to group: ${newGroup}...`);
+        clearSatellites();
+        await loadSatellites(newGroup);
+    }
+});
+
+loadSatellites("active");
 
 
 // --- 2. THE UPDATE FUNCTION ---
 function updateSatellites() {
     const now = new Date();
 
-    // Loop through every active satellite
     activeSatellites.forEach(sat => {
-        // A. Update the Main Satellite Dot
         const posAndVel = satellite.propagate(sat.satrec, now);
-        if (posAndVel.position) {
+        
+        // Include the NaN guards here!
+        if (posAndVel.position && !isNaN(posAndVel.position.x)) {
             const gmst = satellite.gstime(now);
             const posGd = satellite.eciToGeodetic(posAndVel.position, gmst);
             const r = 1 + (posGd.height / 6371);
@@ -315,13 +319,14 @@ function updateSatellites() {
             const y = r * Math.sin(posGd.latitude);
             const z = r * Math.cos(posGd.latitude) * Math.sin(-posGd.longitude);
 
-            // Set the dummy position and update the InstancedMesh at this satellite's index
             dummy.position.set(x, y, z);
             dummy.updateMatrix();
-            satInstancedMesh.setMatrixAt(sat.index, dummy.matrix);
+            if (satInstancedMesh) {
+                 satInstancedMesh.setMatrixAt(sat.index, dummy.matrix);
+            }
 
             sat.altitudeKm = posGd.height;
-            if (posAndVel.velocity) {
+            if (posAndVel.velocity && !isNaN(posAndVel.velocity.x)) {
                 sat.speedKms = Math.sqrt(
                     (posAndVel.velocity.x ** 2) +
                     (posAndVel.velocity.y ** 2) +
@@ -330,7 +335,6 @@ function updateSatellites() {
             }
             sat.angleDeg = (THREE.MathUtils.radToDeg(Math.atan2(z, x)) + 360) % 360;
 
-            // Only do the heavy trail math if the trail geometry actually exists
             if (sat.trailGeometry) {
                 const flatPositionsArray = [];
                 for (let i = 0; i < TRAIL_POINTS; i++) {
@@ -338,15 +342,20 @@ function updateSatellites() {
                     const historicalTime = new Date(now.getTime() - timeOffsetMs);
                     const pastPosVel = satellite.propagate(sat.satrec, historicalTime);
 
-                    if (pastPosVel.position) {
+                    if (pastPosVel.position && !isNaN(pastPosVel.position.x)) {
                         const pastGmst = satellite.gstime(historicalTime);
                         const pastGd = satellite.eciToGeodetic(pastPosVel.position, pastGmst);
                         const pastR = 1 + (pastGd.height / 6371);
-                        flatPositionsArray.push(
-                            pastR * Math.cos(pastGd.latitude) * Math.cos(pastGd.longitude),
-                            pastR * Math.sin(pastGd.latitude),
-                            pastR * Math.cos(pastGd.latitude) * Math.sin(-pastGd.longitude)
-                        );
+                        
+                        const px = pastR * Math.cos(pastGd.latitude) * Math.cos(pastGd.longitude);
+                        const py = pastR * Math.sin(pastGd.latitude);
+                        const pz = pastR * Math.cos(pastGd.latitude) * Math.sin(-pastGd.longitude);
+
+                        if (isNaN(px) || isNaN(py) || isNaN(pz)) {
+                            flatPositionsArray.push(0, 0, 0);
+                        } else {
+                            flatPositionsArray.push(px, py, pz);
+                        }
                     } else {
                         flatPositionsArray.push(0, 0, 0);
                     }
@@ -356,7 +365,6 @@ function updateSatellites() {
         }
     });
 
-    // CRITICAL: Tell the GPU the matrices have moved!
     if (satInstancedMesh) {
         satInstancedMesh.instanceMatrix.needsUpdate = true;
     }
@@ -468,18 +476,25 @@ function fireSatelliteLaserAt(targetWorldPoint) {
   planetVisuals.applyImpactDamage(surfaceNormal);
   spawnImpactPulse(surfaceNormal);
 
-  if (selectedSatellite) {
+  if (selectedSatellite && satInstancedMesh) {
+    const tempMatrix = new THREE.Matrix4();
+    satInstancedMesh.getMatrixAt(selectedSatellite.index, tempMatrix);
+    const startWorldPoint = new THREE.Vector3().setFromMatrixPosition(tempMatrix);
     const impactWorldPoint = planetVisuals.globe.localToWorld(surfaceNormal.clone().multiplyScalar(1.006));
-    spawnLaserBeam(selectedSatellite.mesh.position.clone(), impactWorldPoint);
+    spawnLaserBeam(startWorldPoint, impactWorldPoint);
   }
 }
 
 function fireSelectedSatelliteLaser() {
-  if (!selectedSatellite || isAnimatingCameraRef.current) {
+  if (!selectedSatellite || isAnimatingCameraRef.current || !satInstancedMesh) {
     return;
   }
 
-  const targetWorldPoint = selectedSatellite.mesh.position.clone().normalize();
+  const tempMatrix = new THREE.Matrix4();
+  satInstancedMesh.getMatrixAt(selectedSatellite.index, tempMatrix);
+  const currentPos = new THREE.Vector3().setFromMatrixPosition(tempMatrix);
+
+  const targetWorldPoint = currentPos.clone().normalize();
   fireSatelliteLaserAt(targetWorldPoint);
 }
 
@@ -553,7 +568,7 @@ function updateCalloutTyping() {
 }
 
 function updateSatelliteCallout() {
-  if (!selectedSatellite) {
+  if (!selectedSatellite || !satInstancedMesh) {
     infoBox.classList.remove('visible');
     if (fireLaserButton) {
       fireLaserButton.disabled = true;
@@ -562,7 +577,6 @@ function updateSatelliteCallout() {
     return;
   }
 
-  // Only render callout once camera transition has settled on target.
   if (isAnimatingCameraRef.current) {
     infoBox.classList.remove('visible');
     if (fireLaserButton) {
@@ -575,8 +589,7 @@ function updateSatelliteCallout() {
   satInstancedMesh.getMatrixAt(selectedSatellite.index, tempMatrix);
   const currentPos = new THREE.Vector3().setFromMatrixPosition(tempMatrix);
 
-  // Project that 3D position to the 2D screen
-    projectedSatelliteScreen.copy(currentPos).project(camera);
+  projectedSatelliteScreen.copy(currentPos).project(camera);
 
   if (projectedSatelliteScreen.z < -1 || projectedSatelliteScreen.z > 1) {
     infoBox.classList.remove('visible');
@@ -664,22 +677,17 @@ function updateSatelliteCallout() {
 
 // --- Click handling for satellite selection ---
 function onCanvasClick(event) {
-  // Prevent clicks during animation
   if (isAnimatingCameraRef.current || !satInstancedMesh) return;
 
-  // Calculate mouse position in normalized device coordinates
   const rect = renderer.domElement.getBoundingClientRect();
   mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-  // Update raycaster
   raycaster.setFromCamera(mouse, camera);
 
-  // Check if any satellite is clicked - get all satellite meshes
   const intersects = raycaster.intersectObject(satInstancedMesh);
 
   if (intersects.length > 0 && !selectedSatellite) {
-    // Find which satellite was clicked
     const instanceId = intersects[0].instanceId;
     const clickedSat = activeSatellites.find(sat => sat.index === instanceId);
     if (clickedSat) {
@@ -703,33 +711,26 @@ function selectSatellite(sat) {
   calloutReveal.progress = 0;
   infoBox.classList.remove('visible');
 
-  // Animate camera to focus on satellite
     const tempMatrix = new THREE.Matrix4();
     const targetSatPosition = new THREE.Vector3();
 
-    // Get the matrix for this specific satellite index
     satInstancedMesh.getMatrixAt(sat.index, tempMatrix);
-    // Extract the position vector from that matrix
     targetSatPosition.setFromMatrixPosition(tempMatrix);
 
-    // Zoom into the satellite
-    const zoomDistance = 0.3; // How close to get to satellite
-    const duration = 1000; // milliseconds
+    const targetDistance = 2;
+    const duration = 1000;
     const startTime = Date.now();
 
     const startPosition = camera.position.clone();
-    // Position camera near the satellite, slightly offset outward from Earth center
-    var targetCameraPosition = targetSatPosition.clone().normalize().multiplyScalar(targetSatPosition.length() + zoomDistance);
+    const targetCameraPosition = targetSatPosition.clone().normalize().multiplyScalar(targetDistance);
 
     const animateCamera = () => {
         const elapsed = Date.now() - startTime;
         const progress = Math.min(elapsed / duration, 1);
-
-        // Smooth easing function
         const easeProgress = 1 - Math.pow(1 - progress, 3);
 
         camera.position.lerpVectors(startPosition, targetCameraPosition, easeProgress);
-        camera.lookAt(0, 0, 0); // Look back towards Earth
+        camera.lookAt(targetSatPosition); 
 
         if (progress < 1) {
             requestAnimationFrame(animateCamera);
@@ -796,7 +797,6 @@ function resetCameraToStartView() {
   if (isAnimatingCameraRef.current) {
     return;
   }
-
   clearSelectedSatelliteState();
   animateCameraToDefaultView();
 }
@@ -805,11 +805,9 @@ function deselectSatellite() {
   if (!selectedSatellite) {
     return;
   }
-
   if (isAnimatingCameraRef.current) {
     return;
   }
-
   clearSelectedSatelliteState();
   animateCameraToDefaultView();
 }
@@ -819,7 +817,6 @@ document.addEventListener('click', (event) => {
   onCanvasClick(event);
 });
 
-// Center to user location button
 if (centerLocationButton) {
   centerLocationButton.addEventListener('click', () => {
     if (hasValidLocation(location)) {
