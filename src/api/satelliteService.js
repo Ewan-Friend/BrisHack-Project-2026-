@@ -97,26 +97,48 @@ async function fetchSatellitesWithFallback(group, signal) {
  * @param {string} group - CelesTrak group (visual, active, stations, weather, etc.)
  * @returns {Promise<Array>} Array of satellite data
  */
-export const getAllSatellites = async (group = 'visual', limit = 1000) => {
-    const baseUrl = fallback ? REMOTE_API_BASE : LOCAL_API_BASE;
-    try {
-    const response = await fetch(`${baseUrl}/satellites?group=${group}&limit=${limit}`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return await response.json();
-  } catch (error) {
-        if (!fallback) {
-            console.warn('Local API not running. Switching to Vercel...');
-            fallback = true;
-            const fallbackResponse = await fetch(`${REMOTE_API_BASE}/satellites?group=${group}&limit=${limit}`);
-            return await fallbackResponse.json();
-        }
-    console.error('Error fetching satellites:', error);
-    throw error;
-  }
-};
+export const getAllSatellites = async (group = 'visual',limit = 1000, options = {}) => {
+  const { signal = undefined, forceRefresh = false } = options;
+  const cacheKey = String(group);
 
+  if (!forceRefresh) {
+    const cached = getCachedGroup(cacheKey);
+    if (cached) {
+      return cached;
+    }
+  }
+
+  const canDeduplicate = !signal && !forceRefresh;
+  if (canDeduplicate) {
+    const existingRequest = inflightSatelliteRequests.get(cacheKey);
+    if (existingRequest) {
+      return existingRequest;
+    }
+  }
+
+  const requestPromise = (async () => {
+    try {
+      const data = await fetchSatellitesWithFallback(cacheKey, signal);
+      setCachedGroup(cacheKey, data);
+      return data;
+    } catch (error) {
+      if (error?.name !== 'AbortError') {
+        console.error('Error fetching satellites:', error);
+      }
+      throw error;
+    }
+  })();
+
+  if (!canDeduplicate) {
+    return requestPromise;
+  }
+
+  inflightSatelliteRequests.set(cacheKey, requestPromise);
+  try {
+    return await requestPromise;
+  } finally {
+    inflightSatelliteRequests.delete(cacheKey);
+  }};
 /**
  * Fetch a specific satellite by NORAD ID
  * @param {string} noradId - The NORAD catalog ID

@@ -400,26 +400,23 @@ function clearSatellites() {
     activeSatellites.length = 0;
 }
 
-async function loadSatellites(group = "active") {
+async function loadSatellites(group = "active", limit=1000) {
+        const loadToken = ++satelliteLoadToken;
+    if (satelliteLoadController) {
+        satelliteLoadController.abort();
+    }
+    satelliteLoadController = new AbortController();
+
     try {
-        // Only fetch from the network if we switched to a new group
-        if (group !== currentGroup || fullGroupCache.length === 0) {
-            fullGroupCache = await service.getAllSatellites(group, currentSatelliteLimit);
-            currentGroup = group;
-        }
-
-        // SLICE the array based on the frontend sidebar limit
-        const limitedArray = fullGroupCache.slice(0, currentSatelliteLimit);
-
-        limitedArray.forEach(satelliteObj => {
-            satelliteDataMap[satelliteObj.OBJECT_ID] = satelliteObj;
+        const limitedArray = await service.getAllSatellites(group, limit, {
+            signal: satelliteLoadController.signal,
         });
         if (loadToken !== satelliteLoadToken) {
             return;
         }
 
-        for (let i = 0; i < jsonArray.length; i += 1) {
-            const satelliteObj = jsonArray[i];
+        for (let i = 0; i < limitedArray.length; i += 1) {
+            const satelliteObj = limitedArray[i];
             satelliteDataMap[satelliteObj.OBJECT_ID] = satelliteObj;
         }
 
