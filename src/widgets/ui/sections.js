@@ -53,7 +53,12 @@ export function mountEnvironmentLayersSection({ sidebarContent, createWidget, en
   sidebarContent.appendChild(container);
 }
 
-export function mountFooterControlsSection({ sidebar, postProcessing, centerLocationButton }) {
+export function mountFooterControlsSection({
+  sidebar,
+  postProcessing,
+  centerLocationButton,
+  onResetCameraView,
+}) {
   const { cycleMode, getActiveMode } = postProcessing || {};
   if (!sidebar) {
     return;
@@ -61,6 +66,8 @@ export function mountFooterControlsSection({ sidebar, postProcessing, centerLoca
 
   const footer = document.createElement('div');
   footer.className = 'sidebar-footer';
+  const leftControls = document.createElement('div');
+  leftControls.className = 'sidebar-footer-left';
 
   if (cycleMode && getActiveMode) {
     const postFxButton = document.createElement('button');
@@ -78,7 +85,22 @@ export function mountFooterControlsSection({ sidebar, postProcessing, centerLoca
     });
 
     syncLabel();
-    footer.appendChild(postFxButton);
+    leftControls.appendChild(postFxButton);
+  }
+
+  if (typeof onResetCameraView === 'function') {
+    const resetViewButton = document.createElement('button');
+    resetViewButton.type = 'button';
+    resetViewButton.className = 'sidebar-reset-button';
+    resetViewButton.textContent = 'Reset View';
+    resetViewButton.addEventListener('click', () => {
+      onResetCameraView();
+    });
+    leftControls.appendChild(resetViewButton);
+  }
+
+  if (leftControls.childElementCount > 0) {
+    footer.appendChild(leftControls);
   }
 
   const locationButton = centerLocationButton || document.getElementById('centerLocationButton');
