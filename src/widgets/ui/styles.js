@@ -145,6 +145,21 @@ export function ensureSidebarStyles() {
       box-shadow: 0 0 0 3px rgba(88, 152, 232, 0.16);
     }
 
+    .sidebar-search-result-item {
+      font-family: "Electrolize", "Segoe UI", sans-serif !important;
+      font-size: 13px;
+      letter-spacing: 0.01em;
+    }
+
+    .sidebar-search-result-item:hover {
+      background: rgba(24, 245, 255, 0.12) !important;
+    }
+
+    .sidebar-search-result-item:focus-visible {
+      outline: none;
+      background: rgba(24, 245, 255, 0.12) !important;
+    }
+
     .sidebar-hint {
       margin: 0;
       color: rgba(193, 214, 243, 0.68);
