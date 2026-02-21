@@ -7,6 +7,7 @@ import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { setupPlanetVisuals } from './widgets/planetVisuals.js';
 import { addUserLocationMarker } from './widgets/userLocationMarker.js';
+import { centerToUserLocation } from './widgets/centerToUserLocation.js';
 import * as service from './api/satelliteService.js'
 
 
@@ -42,7 +43,7 @@ addUserLocationMarker(scene);
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 let selectedSatellite = null;
-let isAnimatingCamera = false;
+const isAnimatingCameraRef = { current: false };
 
 // --- User location --- epic formatted comment
 let location = null
@@ -58,6 +59,7 @@ const infoTitle = document.getElementById('infoTitle');
 const infoCard = document.getElementById('infoCard');
 const satelliteDetails = document.getElementById('satelliteDetails');
 const fireLaserButton = document.getElementById('fireLaserButton');
+const centerLocationButton = document.getElementById('centerLocationButton');
 const infoConnectorPath = document.getElementById('infoConnectorPath');
 const infoConnectorStart = document.getElementById('infoConnectorStart');
 
@@ -414,7 +416,7 @@ function fireSatelliteLaserAt(targetWorldPoint) {
 }
 
 function fireSelectedSatelliteLaser() {
-  if (!selectedSatellite || isAnimatingCamera) {
+  if (!selectedSatellite || isAnimatingCameraRef.current) {
     return;
   }
 
@@ -502,7 +504,7 @@ function updateSatelliteCallout() {
   }
 
   // Only render callout once camera transition has settled on target.
-  if (isAnimatingCamera) {
+  if (isAnimatingCameraRef.current) {
     infoBox.classList.remove('visible');
     if (fireLaserButton) {
       fireLaserButton.disabled = true;
@@ -540,7 +542,7 @@ function updateSatelliteCallout() {
     calloutLayout.p0y = targetP0y;
     calloutLayout.width = targetCalloutWidth;
   } else {
-    const follow = isAnimatingCamera ? 0.2 : 0.35;
+    const follow = isAnimatingCameraRef.current ? 0.2 : 0.35;
     calloutLayout.p0x = THREE.MathUtils.lerp(calloutLayout.p0x, targetP0x, follow);
     calloutLayout.p0y = THREE.MathUtils.lerp(calloutLayout.p0y, targetP0y, follow);
     calloutLayout.width = THREE.MathUtils.lerp(calloutLayout.width, targetCalloutWidth, 0.28);
@@ -599,7 +601,7 @@ function updateSatelliteCallout() {
 // --- Click handling for satellite selection ---
 function onCanvasClick(event) {
   // Prevent clicks during animation
-  if (isAnimatingCamera) return;
+  if (isAnimatingCameraRef.current) return;
 
   // Calculate mouse position in normalized device coordinates
   const rect = renderer.domElement.getBoundingClientRect();
@@ -636,12 +638,12 @@ function selectSatellite(sat) {
     return;
   }
 
-  if (isAnimatingCamera) {
+  if (isAnimatingCameraRef.current) {
     return;
   }
 
   selectedSatellite = sat;
-  isAnimatingCamera = true;
+  isAnimatingCameraRef.current = true;
   controls.enabled = false;
   calloutLayout.initialized = false;
   calloutReveal.active = false;
@@ -669,7 +671,7 @@ function selectSatellite(sat) {
     if (progress < 1) {
       requestAnimationFrame(animateCamera);
     } else {
-      isAnimatingCamera = false;
+      isAnimatingCameraRef.current = false;
       startCalloutReveal();
       const satData = satelliteDataMap[sat.id];
       if (satData) {
@@ -687,7 +689,7 @@ function deselectSatellite() {
   }
 
   selectedSatellite = null;
-  isAnimatingCamera = true;
+  isAnimatingCameraRef.current = true;
   controls.enabled = false;
   calloutTyping.active = false;
   calloutLayout.initialized = false;
@@ -717,7 +719,7 @@ function deselectSatellite() {
     if (progress < 1) {
       requestAnimationFrame(animateCamera);
     } else {
-      isAnimatingCamera = false;
+      isAnimatingCameraRef.current = false;
       controls.enabled = true;
     }
   };
@@ -727,6 +729,23 @@ function deselectSatellite() {
 
 // Add click event listener
 renderer.domElement.addEventListener('click', onCanvasClick);
+
+// Center to user location button
+if (centerLocationButton) {
+  centerLocationButton.addEventListener('click', () => {
+    if (location && location.latitude && location.longitude) {
+      centerToUserLocation({
+        camera,
+        controls,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        isAnimatingCameraRef
+      });
+    } else {
+      console.warn('User location not available');
+    }
+  });
+}
 
 // --- Resize Handling ---
 
