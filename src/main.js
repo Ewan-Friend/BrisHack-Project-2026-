@@ -5,6 +5,10 @@ import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import './test.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
 const issJson = {
     "OBJECT_NAME": "ATLAS CENTAUR 2",
@@ -42,6 +46,103 @@ const scene = new THREE.Scene();
 
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(0, 0, 3);
+
+const POST_FX_MODES = [
+  {
+    key: 'low',
+    label: 'Low',
+    usePostProcessing: false,
+    bloomResolutionScale: 0.75,
+    bloomThreshold: 0.30,
+    bloomStrength: 0.0,
+    bloomRadius: 0.0,
+  },
+  {
+    key: 'medium',
+    label: 'Medium',
+    usePostProcessing: true,
+    bloomResolutionScale: 0.75,
+    bloomThreshold: 0.26,
+    bloomStrength: 0.25,
+    bloomRadius: 0.34,
+  },
+  {
+    key: 'high',
+    label: 'High',
+    usePostProcessing: true,
+    bloomResolutionScale: 1.0,
+    bloomThreshold: 0.22,
+    bloomStrength: 0.32,
+    bloomRadius: 0.40,
+  },
+];
+let postFxModeIndex = 1;
+let activePostFxMode = POST_FX_MODES[postFxModeIndex];
+
+// --- Post Processing ---
+
+const composer = new EffectComposer(renderer);
+const renderPass = new RenderPass(scene, camera);
+composer.addPass(renderPass);
+
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(
+    window.innerWidth * activePostFxMode.bloomResolutionScale,
+    window.innerHeight * activePostFxMode.bloomResolutionScale
+  )
+);
+bloomPass.threshold = activePostFxMode.bloomThreshold;
+bloomPass.strength = activePostFxMode.bloomStrength;
+bloomPass.radius = activePostFxMode.bloomRadius;
+composer.addPass(bloomPass);
+
+const outputPass = new OutputPass();
+composer.addPass(outputPass);
+
+const postFxToggleButton = document.createElement('button');
+postFxToggleButton.style.position = 'fixed';
+postFxToggleButton.style.top = '16px';
+postFxToggleButton.style.left = '16px';
+postFxToggleButton.style.padding = '8px 12px';
+postFxToggleButton.style.border = '1px solid rgba(180, 215, 255, 0.45)';
+postFxToggleButton.style.borderRadius = '10px';
+postFxToggleButton.style.background = 'rgba(8, 18, 34, 0.7)';
+postFxToggleButton.style.color = '#d7ecff';
+postFxToggleButton.style.fontFamily = 'system-ui, -apple-system, Segoe UI, sans-serif';
+postFxToggleButton.style.fontSize = '12px';
+postFxToggleButton.style.fontWeight = '600';
+postFxToggleButton.style.letterSpacing = '0.01em';
+postFxToggleButton.style.cursor = 'pointer';
+postFxToggleButton.style.zIndex = '12';
+document.body.appendChild(postFxToggleButton);
+
+function applyPostFxMode(mode) {
+  activePostFxMode = mode;
+  postFxToggleButton.textContent = `Post FX: ${mode.label}`;
+
+  if (!mode.usePostProcessing) {
+    bloomPass.enabled = false;
+    outputPass.enabled = false;
+    return;
+  }
+
+  bloomPass.enabled = true;
+  outputPass.enabled = true;
+  bloomPass.threshold = mode.bloomThreshold;
+  bloomPass.strength = mode.bloomStrength;
+  bloomPass.radius = mode.bloomRadius;
+  bloomPass.setSize(
+    window.innerWidth * mode.bloomResolutionScale,
+    window.innerHeight * mode.bloomResolutionScale
+  );
+}
+
+postFxToggleButton.addEventListener('click', () => {
+  postFxModeIndex = (postFxModeIndex + 1) % POST_FX_MODES.length;
+  applyPostFxMode(POST_FX_MODES[postFxModeIndex]);
+});
+
+applyPostFxMode(activePostFxMode);
 
 // --- Controls ---
 
@@ -128,8 +229,17 @@ globe.material.onBeforeCompile = (shader) => {
     `#include <emissivemap_fragment>
     #if NUM_DIR_LIGHTS > 0
       float sunNdotL = dot(normal, directionalLights[0].direction);
-      float nightMask = 1.0 - smoothstep(-0.15, 0.08, sunNdotL);
-      totalEmissiveRadiance *= pow(nightMask, 1.5);
+
+      // Wider and softer city-light transition through civil/nautical twilight.
+      float nightMask = 1.0 - smoothstep(-0.30, 0.18, sunNdotL);
+      totalEmissiveRadiance *= nightMask;
+
+      // Broad, low-intensity sunset haze around the terminator (avoids a hard red stripe).
+      float sunsetBand =
+        smoothstep(-0.32, -0.02, sunNdotL) *
+        (1.0 - smoothstep(0.03, 0.24, sunNdotL));
+      vec3 sunsetColor = vec3(0.35, 0.22, 0.14);
+      totalEmissiveRadiance += sunsetColor * sunsetBand * 0.012;
     #endif`
   );
 };
@@ -153,7 +263,100 @@ const cloudLayer = new THREE.Mesh(
     emissiveIntensity: 0.035,
   })
 );
+cloudLayer.material.onBeforeCompile = (shader) => {
+  shader.fragmentShader = shader.fragmentShader.replace(
+    '#include <emissivemap_fragment>',
+    `#include <emissivemap_fragment>
+    #if NUM_DIR_LIGHTS > 0
+      float sunNdotL = dot(normal, directionalLights[0].direction);
+
+      // Clouds carry warm scattering slightly deeper into the night side.
+      float cloudSunsetBand =
+        smoothstep(-0.40, -0.06, sunNdotL) *
+        (1.0 - smoothstep(0.06, 0.30, sunNdotL));
+      vec3 cloudSunsetColor = vec3(0.46, 0.31, 0.22);
+      totalEmissiveRadiance += cloudSunsetColor * cloudSunsetBand * 0.02;
+    #endif`
+  );
+};
 scene.add(cloudLayer);
+
+// --- Atmosphere Halo (Fresnel Glow) ---
+
+const atmosphereUniforms = {
+  sunDirection: { value: new THREE.Vector3(1, 0, 0) },
+  dayColor: { value: new THREE.Color(0x6e9de6) },
+  twilightColor: { value: new THREE.Color(0xd7b48c) },
+  nightColor: { value: new THREE.Color(0x1d2e4f) },
+  intensity: { value: 0.20 },
+  rimPower: { value: 2.3 },
+  rimStart: { value: 0.012 },
+  alphaMax: { value: 0.18 },
+};
+
+const atmosphereVertexShader = `
+  varying vec3 vWorldNormal;
+  varying vec3 vWorldPosition;
+
+  void main() {
+    vec4 worldPos = modelMatrix * vec4(position, 1.0);
+    vWorldPosition = worldPos.xyz;
+    vWorldNormal = normalize(mat3(modelMatrix) * normal);
+    gl_Position = projectionMatrix * viewMatrix * worldPos;
+  }
+`;
+
+const atmosphereFragmentShader = `
+  uniform vec3 sunDirection;
+  uniform vec3 dayColor;
+  uniform vec3 twilightColor;
+  uniform vec3 nightColor;
+  uniform float intensity;
+  uniform float rimPower;
+  uniform float rimStart;
+  uniform float alphaMax;
+
+  varying vec3 vWorldNormal;
+  varying vec3 vWorldPosition;
+
+  void main() {
+    vec3 normalDir = normalize(vWorldNormal);
+    vec3 viewDirection = normalize(cameraPosition - vWorldPosition);
+    vec3 sunDir = normalize(sunDirection);
+
+    float rimRaw = 1.0 - max(dot(normalDir, viewDirection), 0.0);
+    float rim = pow(rimRaw, rimPower);
+    rim = smoothstep(rimStart, 1.0, rim);
+
+    float sunAmount = dot(normalDir, sunDir);
+    float day = smoothstep(-0.05, 0.55, sunAmount);
+    float twilight = smoothstep(-0.30, 0.04, sunAmount) * (1.0 - smoothstep(0.04, 0.34, sunAmount));
+    float night = 1.0 - smoothstep(-0.20, 0.12, sunAmount);
+
+    vec3 color =
+      dayColor * day +
+      twilightColor * twilight * 0.35 +
+      nightColor * night * 0.35;
+
+    float alpha = rim * (0.08 + day * 0.82 + twilight * 0.48 + night * 0.30) * intensity;
+    alpha = clamp(alpha, 0.0, alphaMax);
+    gl_FragColor = vec4(color, alpha);
+  }
+`;
+
+const atmosphereLayer = new THREE.Mesh(
+  new THREE.SphereGeometry(1.022, 128, 128),
+  new THREE.ShaderMaterial({
+    uniforms: atmosphereUniforms,
+    vertexShader: atmosphereVertexShader,
+    fragmentShader: atmosphereFragmentShader,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.BackSide,
+  })
+);
+scene.add(atmosphereLayer);
 
 // --- Starfield ---
 // 2000 random points scattered in a large cube around the scene
@@ -179,6 +382,13 @@ const sunLight = new THREE.DirectionalLight(0xfff1d6, 2.2);
 sunLight.position.set(5, 3, 5);
 scene.add(sunLight);
 
+const atmosphereSunDirection = new THREE.Vector3();
+function updateAtmosphereSunDirection() {
+  atmosphereSunDirection.copy(sunLight.position).normalize();
+  atmosphereUniforms.sunDirection.value.copy(atmosphereSunDirection);
+}
+updateAtmosphereSunDirection();
+
 // Soft moonlight from the opposite direction keeps clouds faintly visible at night.
 const moonLight = new THREE.DirectionalLight(0xb9cfff, 0.12);
 moonLight.position.copy(sunLight.position).multiplyScalar(-1);
@@ -194,7 +404,11 @@ const satrec = satellite.json2satrec(issJson);
 // Creating the visual marker (the red dot)
 const TRAIL_LENGTH_MINUTES = 25; // How long you want the tail to be
 const TRAIL_POINTS = 150; // Smoothness of the tail
+const TRAIL_UPDATE_INTERVAL_MS = 120; // Recompute trajectory ~8 times/sec instead of every frame.
 const trailGeometry = new LineGeometry();
+const trailPositions = new Float32Array(TRAIL_POINTS * 3);
+const historicalTime = new Date();
+let lastTrailUpdateMs = 0;
 
 const initialPositions = [];
 for (let i = 0; i < TRAIL_POINTS; i++) {
@@ -238,7 +452,7 @@ scene.add(issMesh);
 // --- 2. THE UPDATE FUNCTION ---
 function updateISS() {
     const now = new Date();
-    const flatPositionsArray = [];
+    const nowMs = now.getTime();
 
     // A. Update the Main Satellite Dot
     const posAndVel = satellite.propagate(satrec, now);
@@ -254,29 +468,33 @@ function updateISS() {
     }
 
     // B. Dynamically generate the trailing line (Past trajectory)
+    if (nowMs - lastTrailUpdateMs < TRAIL_UPDATE_INTERVAL_MS) {
+        return;
+    }
+    lastTrailUpdateMs = nowMs;
+
     for (let i = 0; i < TRAIL_POINTS; i++) {
         // Calculate the historical time for this specific point in the line
         // i=0 is the oldest point (tail end), i=99 is the current position (head)
         const timeOffsetMs = (TRAIL_POINTS - 1 - i) * (TRAIL_LENGTH_MINUTES * 60000 / TRAIL_POINTS);
-        const historicalTime = new Date(now.getTime() - timeOffsetMs);
+        historicalTime.setTime(nowMs - timeOffsetMs);
 
         const pastPosVel = satellite.propagate(satrec, historicalTime);
+        const baseIndex = i * 3;
 
         if (pastPosVel.position) {
             const pastGmst = satellite.gstime(historicalTime);
             const pastGd = satellite.eciToGeodetic(pastPosVel.position, pastGmst);
             const pastR = 1 + (pastGd.height / 6371);
 
-            flatPositionsArray.push(
-                pastR * Math.cos(pastGd.latitude) * Math.cos(pastGd.longitude),
-                pastR * Math.sin(pastGd.latitude),
-                pastR * Math.cos(pastGd.latitude) * Math.sin(-pastGd.longitude)
-            );
+            trailPositions[baseIndex] = pastR * Math.cos(pastGd.latitude) * Math.cos(pastGd.longitude);
+            trailPositions[baseIndex + 1] = pastR * Math.sin(pastGd.latitude);
+            trailPositions[baseIndex + 2] = pastR * Math.cos(pastGd.latitude) * Math.sin(-pastGd.longitude);
         }
     }
 
     // Tell Three.js the trail has been updated
-    trailGeometry.setPositions(flatPositionsArray);
+    trailGeometry.setPositions(trailPositions);
 }
 
 // --- Click handling for satellite selection ---
@@ -396,6 +614,13 @@ window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+  if (activePostFxMode.usePostProcessing) {
+    bloomPass.setSize(
+      window.innerWidth * activePostFxMode.bloomResolutionScale,
+      window.innerHeight * activePostFxMode.bloomResolutionScale
+    );
+  }
   trailMaterial.resolution.set(window.innerWidth, window.innerHeight);
 });
 
@@ -404,6 +629,11 @@ window.addEventListener('resize', () => {
 renderer.setAnimationLoop(() => {
     updateISS();
     cloudLayer.rotation.y += 0.00008;
+    updateAtmosphereSunDirection();
     controls.update();
-    renderer.render(scene, camera);
+    if (activePostFxMode.usePostProcessing) {
+      composer.render();
+    } else {
+      renderer.render(scene, camera);
+    }
 });
