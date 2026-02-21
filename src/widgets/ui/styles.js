@@ -35,9 +35,15 @@ export function ensureSidebarStyles() {
     }
 
     #${SIDEBAR_ID}.is-collapsed {
-      width: 64px;
-      padding: 14px 8px;
-      background: linear-gradient(180deg, rgba(6, 11, 23, 0.86), rgba(9, 16, 30, 0.7));
+      width: 0;
+      height: 0;
+      padding: 0;
+      background: transparent;
+      border-left: 0;
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      overflow: visible;
     }
 
     .sidebar-topbar {
@@ -48,8 +54,11 @@ export function ensureSidebarStyles() {
     }
 
     #${SIDEBAR_ID}.is-collapsed .sidebar-topbar {
+      position: absolute;
+      top: 8px;
+      right: 8px;
       justify-content: center;
-      margin-bottom: 8px;
+      margin-bottom: 0;
     }
 
     .sidebar-collapse-toggle {
@@ -209,10 +218,7 @@ export function ensureSidebarStyles() {
 
     #${SIDEBAR_ID}.is-collapsed .sidebar-content,
     #${SIDEBAR_ID}.is-collapsed .sidebar-footer {
-      opacity: 0;
-      transform: translateX(16px);
-      pointer-events: none;
-      user-select: none;
+      display: none;
     }
 
     .sidebar-postfx-button {
@@ -285,6 +291,31 @@ export function ensureSidebarStyles() {
       color: rgba(213, 224, 236, 0.52);
       box-shadow: none;
       cursor: not-allowed;
+    }
+
+    @media (max-width: 640px) {
+      #${SIDEBAR_ID} {
+        width: min(260px, 76vw);
+        padding: 10px;
+      }
+
+      #${SIDEBAR_ID}.is-collapsed .sidebar-topbar {
+        top: 6px;
+        right: 6px;
+      }
+
+      .sidebar-collapse-toggle {
+        width: 26px;
+        height: 26px;
+        border-radius: 8px;
+        font-size: 13px;
+      }
+
+      #${SIDEBAR_ID} #centerLocationButton {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+      }
     }
   `;
 
