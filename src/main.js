@@ -486,6 +486,31 @@ async function getSatelliteDetailsText(sat) {
   }
 
   const inclination = satData.INCLINATION ? satData.INCLINATION.toFixed(2) : 'N/A';
+  const objectId = satData.OBJECT_ID || '';
+
+  // Launch date is not always provided in the current feed; use exact date when available,
+  // otherwise fall back to launch year from COSPAR/International Designator (OBJECT_ID).
+  let launchDateDisplay = 'N/A';
+  if (satData.LAUNCH_DATE) {
+    try {
+      const launchDate = new Date(satData.LAUNCH_DATE);
+      if (!isNaN(launchDate.getTime())) {
+        launchDateDisplay = launchDate.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        });
+      }
+    } catch (e) {
+      launchDateDisplay = 'N/A';
+    }
+  }
+  if (launchDateDisplay === 'N/A') {
+    const cosparYearMatch = String(objectId).match(/^(\d{4})-\d{3}[A-Z0-9]*$/i);
+    if (cosparYearMatch) {
+      launchDateDisplay = `${cosparYearMatch[1]} (year)`;
+    }
+  }
   
   // Format eccentricity with proper exponent notation
   let eccentricity = 'N/A';
@@ -512,6 +537,7 @@ Period: ${periodDisplay}
 Inclination: ${inclination}°
 Eccentricity: ${eccentricity}
 NORAD ID: ${noradId}
+Launch Date: ${launchDateDisplay}
 Last Updated: ${epochDisplay}`;
 
   return details;
