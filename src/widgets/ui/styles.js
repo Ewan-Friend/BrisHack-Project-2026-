@@ -381,13 +381,25 @@ export function ensureTopBarStyles() {
       left: 0;
       right: 0;
       height: 50px;
-      background: rgba(2, 12, 30, 0.2);
-      border-bottom: 3px solid rgba(24, 245, 255, 0.8);
+      background: rgba(2, 12, 30, 0.3);
+      border-bottom: none;
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 0 20px;
       z-index: 100;
+      overflow: hidden;
+    }
+
+    #topBar::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 25%;
+      height: 3px;
+      background: linear-gradient(to right, rgba(24, 245, 255, 0.4), rgba(24, 245, 255, 0));
+      pointer-events: none;
     }
 
     #topBar h1 {
