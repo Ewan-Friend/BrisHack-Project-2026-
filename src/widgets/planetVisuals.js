@@ -57,32 +57,8 @@ export function setupPlanetVisuals({ scene, camera, renderer }) {
   const outputPass = new OutputPass();
   composer.addPass(outputPass);
 
-  const existingButton = document.getElementById('postFxToggleButton');
-  if (existingButton) {
-    existingButton.remove();
-  }
-
-  const postFxToggleButton = document.createElement('button');
-  postFxToggleButton.id = 'postFxToggleButton';
-  postFxToggleButton.style.position = 'fixed';
-  postFxToggleButton.style.top = '16px';
-  postFxToggleButton.style.left = '16px';
-  postFxToggleButton.style.padding = '8px 12px';
-  postFxToggleButton.style.border = '1px solid rgba(180, 215, 255, 0.45)';
-  postFxToggleButton.style.borderRadius = '10px';
-  postFxToggleButton.style.background = 'rgba(8, 18, 34, 0.7)';
-  postFxToggleButton.style.color = '#d7ecff';
-  postFxToggleButton.style.fontFamily = 'system-ui, -apple-system, Segoe UI, sans-serif';
-  postFxToggleButton.style.fontSize = '12px';
-  postFxToggleButton.style.fontWeight = '600';
-  postFxToggleButton.style.letterSpacing = '0.01em';
-  postFxToggleButton.style.cursor = 'pointer';
-  postFxToggleButton.style.zIndex = '12';
-  document.body.appendChild(postFxToggleButton);
-
   function applyPostFxMode(mode) {
     activePostFxMode = mode;
-    postFxToggleButton.textContent = `Post FX: ${mode.label}`;
 
     if (!mode.usePostProcessing) {
       bloomPass.enabled = false;
@@ -100,12 +76,17 @@ export function setupPlanetVisuals({ scene, camera, renderer }) {
       window.innerHeight * mode.bloomResolutionScale
     );
   }
+  applyPostFxMode(activePostFxMode);
 
-  postFxToggleButton.addEventListener('click', () => {
+  function cyclePostFxMode() {
     postFxModeIndex = (postFxModeIndex + 1) % POST_FX_MODES.length;
     applyPostFxMode(POST_FX_MODES[postFxModeIndex]);
-  });
-  applyPostFxMode(activePostFxMode);
+    return activePostFxMode;
+  }
+
+  function getActivePostFxMode() {
+    return activePostFxMode;
+  }
 
   const loader = new THREE.TextureLoader();
   const colorMap = loader.load('https://unpkg.com/three-globe@2.35.0/example/img/earth-blue-marble.jpg');
@@ -422,6 +403,10 @@ export function setupPlanetVisuals({ scene, camera, renderer }) {
   return {
     applyImpactDamage: planetDeformation.applyImpactDamage,
     globe,
+    cloudLayer,
+    atmosphereLayer,
+    cyclePostFxMode,
+    getActivePostFxMode,
     update,
     render,
     onResize,
