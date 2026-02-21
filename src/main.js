@@ -34,10 +34,6 @@ const centerLocationButton = document.getElementById('centerLocationButton');
 const defaultCameraPosition = new THREE.Vector3(0, 0, 3);
 const defaultCameraTarget = new THREE.Vector3(0, 0, 0);
 
-let stormSystem = null;
-setupStormMarkers(scene).then(system => {
-    stormSystem = system;
-});
 
 function hasValidLocation(value) {
   return Number.isFinite(value?.latitude) && Number.isFinite(value?.longitude);
@@ -60,6 +56,7 @@ const planetVisuals = setupPlanetVisuals({ scene, camera, renderer });
 // Sidebar will be set up after satellites load
 let sidebarManager = null;
 let groupSelectorConfig = null;
+const stormSystem = setupStormMarkers(scene);
 
 function initializeSidebar() {
   if (sidebarManager) {
@@ -75,6 +72,7 @@ function initializeSidebar() {
     environmentLayers: {
       cloudLayer: planetVisuals.cloudLayer,
       atmosphereLayer: planetVisuals.atmosphereLayer,
+      stormGroup: stormSystem.group,
     },
     centerLocationButton,
     onResetCameraView: () => resetCameraToStartView(),

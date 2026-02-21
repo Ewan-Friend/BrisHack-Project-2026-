@@ -3,7 +3,7 @@ export function createLayerToggle(labelText, layerMesh) {
   toggleRow.className = 'sidebar-switch';
 
   const label = document.createElement('span');
-  label.textContent = labelText;
+  label.textContent = labelText;  
 
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox';
@@ -108,7 +108,8 @@ export function mountSatelliteSearchSection({ sidebarContent, createWidget, sate
 }
 
 export function mountEnvironmentLayersSection({ sidebarContent, createWidget, environmentLayers }) {
-  const { cloudLayer, atmosphereLayer } = environmentLayers || {};
+  // We added stormGroup to the destructured object here
+  const { cloudLayer, atmosphereLayer, stormGroup } = environmentLayers || {};
   if (!sidebarContent) {
     return;
   }
@@ -116,6 +117,10 @@ export function mountEnvironmentLayersSection({ sidebarContent, createWidget, en
   const { container, contentArea } = createWidget('Environment Layers');
   contentArea.appendChild(createLayerToggle('Clouds', cloudLayer));
   contentArea.appendChild(createLayerToggle('Atmosphere', atmosphereLayer));
+  
+  // This line hooks up the Severe Weather UI toggle to the 3D storm group
+  contentArea.appendChild(createLayerToggle('Severe Weather', stormGroup)); 
+  
   sidebarContent.appendChild(container);
 }
 
