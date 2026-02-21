@@ -443,3 +443,4 @@ pyrightconfig.json
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/python,node,visualstudiocode,intellij
+backend/api/routes/__pycache__/satellites.cpython-312.pyc
