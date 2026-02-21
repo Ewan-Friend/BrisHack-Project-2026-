@@ -107,6 +107,48 @@ export function mountSatelliteSearchSection({ sidebarContent, createWidget, sate
   sidebarContent.appendChild(container);
 }
 
+export function mountSatelliteSettingsSection({ sidebarContent, createWidget, initialLimit, onLimitChange }) {
+  if (!sidebarContent) return;
+
+  const { container, contentArea } = createWidget('Satellite Settings');
+
+  const row = document.createElement('div');
+  row.style.padding = '8px 0';
+  row.style.color = '#d7ecff';
+  row.style.fontSize = '14px';
+  row.style.display = 'flex';
+  row.style.justifyContent = 'space-between';
+  row.style.alignItems = 'center';
+
+  const label = document.createElement('span');
+  label.textContent = 'Render Limit:';
+
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.min = '10';
+  input.max = '20000';
+  input.step = '500';
+  input.value = initialLimit || 1000;
+  input.style.width = '70px';
+  input.style.background = 'rgba(8, 18, 34, 0.7)';
+  input.style.color = '#fff';
+  input.style.border = '1px solid rgba(180, 215, 255, 0.45)';
+  input.style.borderRadius = '4px';
+  input.style.padding = '4px 6px';
+
+  input.addEventListener('change', (e) => {
+    const val = parseInt(e.target.value, 10);
+    if (!isNaN(val) && onLimitChange) {
+      onLimitChange(val);
+    }
+  });
+
+  row.appendChild(label);
+  row.appendChild(input);
+  contentArea.appendChild(row);
+  sidebarContent.appendChild(container);
+}
+
 export function mountEnvironmentLayersSection({ sidebarContent, createWidget, environmentLayers }) {
   // We added stormGroup to the destructured object here
   const { cloudLayer, atmosphereLayer, stormGroup } = environmentLayers || {};

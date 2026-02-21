@@ -1,21 +1,37 @@
+// src/widgets/uiManager.js
+
 import { SIDEBAR_ID } from './ui/constants.js';
 import { ensureSidebarStyles } from './ui/styles.js';
 import { createWidget as makeWidget } from './ui/widgetFactory.js';
 import { createSidebarShell } from './ui/sidebarShell.js';
+import { setupGroupSelector } from './groupSelector.js';
 import {
   mountEnvironmentLayersSection,
   mountFooterControlsSection,
   mountSatelliteSearchSection,
+  mountSatelliteSettingsSection
 } from './ui/sections.js';
 
 export class UIManager {
-  constructor({ postProcessing, environmentLayers, centerLocationButton, onResetCameraView, satelliteData, onSelectSatellite }) {
+  constructor({ 
+    postProcessing, 
+    environmentLayers, 
+    centerLocationButton, 
+    onResetCameraView, 
+    satelliteData, 
+    onSelectSatellite,
+    satelliteLimit,
+    onLimitChange
+  }) {
     this.postProcessing = postProcessing;
     this.environmentLayers = environmentLayers;
     this.centerLocationButton = centerLocationButton;
     this.onResetCameraView = onResetCameraView;
     this.satelliteData = satelliteData;
     this.onSelectSatellite = onSelectSatellite;
+    
+    this.satelliteLimit = satelliteLimit;
+    this.onLimitChange = onLimitChange;
 
     this.sidebar = null;
     this.sidebarContent = null;
@@ -61,6 +77,16 @@ export class UIManager {
     });
   }
 
+  // New method for rendering the limit input widget
+  mountSatelliteSettingsWidget() {
+    mountSatelliteSettingsSection({
+      sidebarContent: this.sidebarContent,
+      createWidget: (title) => this.createWidget(title),
+      initialLimit: this.satelliteLimit,
+      onLimitChange: this.onLimitChange,
+    });
+  }
+
   mountEnvironmentLayersWidget() {
     mountEnvironmentLayersSection({
       sidebarContent: this.sidebarContent,
@@ -81,7 +107,10 @@ export class UIManager {
   mount() {
     ensureSidebarStyles();
     this.createSidebarContainer();
+    
+    // Mount widgets in the desired visual order
     this.mountSatelliteSearchWidget();
+    this.mountSatelliteSettingsWidget(); 
     this.mountEnvironmentLayersWidget();
     this.mountFooterControls();
   }

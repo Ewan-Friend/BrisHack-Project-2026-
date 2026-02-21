@@ -58,6 +58,11 @@ let sidebarManager = null;
 let groupSelectorConfig = null;
 const stormSystem = setupStormMarkers(scene);
 
+// --- SATELLITE LIMIT & CACHE STATE ---
+let currentGroup = 'active';
+let currentSatelliteLimit = 1000;
+let fullGroupCache = []
+
 function initializeSidebar() {
   if (sidebarManager) {
     // If sidebar already exists, just skip re-initialization
@@ -76,6 +81,12 @@ function initializeSidebar() {
     },
     centerLocationButton,
     onResetCameraView: () => resetCameraToStartView(),
+    satelliteLimit: currentSatelliteLimit,
+    onLimitChange: (newLimit) => {
+        currentSatelliteLimit = newLimit;
+        clearSatellites();
+        loadSatellites(currentGroup);
+    },
     satelliteData: {
       activeSatellites,
       satelliteDataMap,
@@ -390,15 +401,18 @@ function clearSatellites() {
 }
 
 async function loadSatellites(group = "active") {
-    const loadToken = ++satelliteLoadToken;
-    if (satelliteLoadController) {
-        satelliteLoadController.abort();
-    }
-    satelliteLoadController = new AbortController();
-
     try {
-        const jsonArray = await service.getAllSatellites(group, {
-            signal: satelliteLoadController.signal,
+        // Only fetch from the network if we switched to a new group
+        if (group !== currentGroup || fullGroupCache.length === 0) {
+            fullGroupCache = await service.getAllSatellites(group, currentSatelliteLimit);
+            currentGroup = group;
+        }
+
+        // SLICE the array based on the frontend sidebar limit
+        const limitedArray = fullGroupCache.slice(0, currentSatelliteLimit);
+
+        limitedArray.forEach(satelliteObj => {
+            satelliteDataMap[satelliteObj.OBJECT_ID] = satelliteObj;
         });
         if (loadToken !== satelliteLoadToken) {
             return;
@@ -409,9 +423,8 @@ async function loadSatellites(group = "active") {
             satelliteDataMap[satelliteObj.OBJECT_ID] = satelliteObj;
         }
 
-        console.log(`Successfully loaded ${jsonArray.length} satellites for group: ${group}.`);
+        console.log(`Successfully rendered ${limitedArray.length} satellites (out of ${fullGroupCache.length} downloaded).`);
         buildSatelliteMeshes();
-        // Initialize sidebar with satellite data
         initializeSidebar();
 
     } catch (error) {
@@ -426,13 +439,12 @@ async function loadSatellites(group = "active") {
     }
 }
 
-// Initialize the group selector widget and the initial load
-// Store group selector config to be mounted after sidebar initializes
+// Ensure the dropdown clears the cache so it triggers a fresh API call
 groupSelectorConfig = {
     initialGroup: 'active',
     onGroupChange: async (newGroup) => {
-        console.log(`Switching to group: ${newGroup}...`);
         clearSatellites();
+        fullGroupCache = []; // Clear cache to force a new download
         await loadSatellites(newGroup);
     }
 };
