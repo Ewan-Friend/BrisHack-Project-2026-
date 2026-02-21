@@ -7,7 +7,8 @@ import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { setupPlanetVisuals } from './planetVisuals.js';
 import { addUserLocationMarker } from './widgets/userLocationMarker.js';
-import {buildSatelliteMeshes} from './widgets/buildSatelliteMeshes.js'
+import { buildSatelliteMeshes } from './widgets/buildSatelliteMeshes.js';
+import { loadSatellites } from './widgets/loadSatellites.js';
 import * as service from './api/satelliteService.js'
 
 
@@ -175,35 +176,19 @@ function getSatelliteColor(jsonData) {
     return new THREE.Color(0xcc55ff);
 }
 
-async function loadSatellites() {
-    try {
-        const jsonArray = await service.getAllSatellites();
-
-        jsonArray.forEach(satelliteObj => {
-            satelliteDataMap[satelliteObj.OBJECT_ID] = satelliteObj;
-        });
-
-        console.log(`Successfully loaded ${jsonArray.length} satellites.`);
-        buildSatelliteMeshes({
-            satelliteDataMap,
-            scene,
-            activeSatellites,
-            getSatelliteColor,
-            TRAIL_POINTS,
-            initialPositions,
-            sharedTrailMaterial,
-            sharedSatGeometry
-        });
-
-    } catch (error) {
-        console.error("Failed to load satellites. Check if your Python server is running and CORS is enabled.", error);
-    }
-}
-
-loadSatellites();
+loadSatellites({
+    satelliteDataMap,
+    scene,
+    activeSatellites,
+    getSatelliteColor,
+    TRAIL_POINTS,
+    initialPositions,
+    sharedTrailMaterial,
+    sharedSatGeometry
+});
 
 
-// --- 2. THE UPDATE FUNCTION ---
+// --- Update Function ---
 function updateSatellites() {
     const now = new Date();
 
