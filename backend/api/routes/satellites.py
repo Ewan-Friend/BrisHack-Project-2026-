@@ -1,38 +1,35 @@
-from fastapi import APIRouter
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException
 from typing import List
-from services import get_top100_satellites
+from services.satellite_service import get_top100_satellites 
+from models.satellite import SatelliteData
+from services.supabase_service import insert_satellite_data
 
 router = APIRouter()
 
-# Pydantic model for satellite
-class Satellite(BaseModel):
-	id: str
-	name: str
-	position: dict  # e.g., {"lat": float, "lon": float, "alt": float}
-	status: str
-	# Add other standard vars as needed
 
-# Dummy data for now
-satellites_db = [
-	Satellite(id="25544", name="ISS", position={"lat": 51.6, "lon": -0.1, "alt": 408}, status="active"),
-	Satellite(id="40069", name="Hubble", position={"lat": 28.5, "lon": -80.6, "alt": 547}, status="active"),
-]
+@router.get("/satellites/cache")
+@router.post("/satellites/cache")
+def cache_satellites():
+    fetched_data = get_top100_satellites()
+    results = []
+    for sat in fetched_data:
+        try:
+            validated = SatelliteData(**sat)
+            insert_satellite_data(validated)
+            results.append({"object_id": validated.OBJECT_ID, "status": "success"})
+        except Exception as e:
+            results.append({"object_id": sat.get("OBJECT_ID", "unknown"), "error": str(e)})
+    return {"results": results}
 
 @router.get("/satellites")
 def list_satellites():
-	# return satellites_db
-	return get_top100_satellites()
+    return get_top100_satellites()
 
-@router.get("/satellites/{satellite_id}", response_model=Satellite)
+
+@router.get("/satellites/{satellite_id}", response_model=SatelliteData)
 def get_satellite(satellite_id: str):
-	for sat in satellites_db:
-		if sat.id == satellite_id:
-			return sat
-	return {"error": "Satellite not found"}
-
-# Placeholder for tracking endpoint
-@router.get("/satellites/{satellite_id}/track")
-def track_satellite(satellite_id: str):
-	# Integrate Celeste tracking here
-	return {"satellite_id": satellite_id, "tracking": "Not implemented"}
+    all_sats = get_top100_satellites()
+    for sat in all_sats:
+        if sat.get("OBJECT_ID") == satellite_id:
+            return sat
+    raise HTTPException(status_code=404, detail="Satellite not found")
