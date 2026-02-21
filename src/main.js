@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import * as satellite from "satellite.js"
+import { getUserLocation } from './services/locationService.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
@@ -39,6 +40,10 @@ const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 let selectedSatellite = null;
 let isAnimatingCamera = false;
+
+// --- User location --- epic formatted comment
+const location = await getUserLocation
+console.log('location:', location)
 const projectedSatelliteScreen = new THREE.Vector3();
 
 const infoBox = document.getElementById('infoBox');
