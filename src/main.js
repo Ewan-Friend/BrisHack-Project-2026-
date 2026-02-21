@@ -45,7 +45,11 @@ let selectedSatellite = null;
 let isAnimatingCamera = false;
 
 // --- User location --- epic formatted comment
-const location = await getUserLocation();
+let location = null
+getUserLocation().then(loc => {
+    location = loc;
+    console.log('location:', location);
+}).catch(err => console.warn('Location access denied or failed:', err));
 console.log('location:', location);
 const projectedSatelliteScreen = new THREE.Vector3();
 
