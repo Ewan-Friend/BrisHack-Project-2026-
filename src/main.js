@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import * as satellite from "satellite.js"
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { Line2 } from 'three/addons/lines/Line2.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 
 const issJson = {
     "OBJECT_NAME": "ATLAS CENTAUR 2",
@@ -108,56 +111,91 @@ scene.add(sunLight);
 const satrec = satellite.json2satrec(issJson);
 
 // Creating the visual marker (the red dot)
-const MAX_POINTS = 500;
-const trailGeometry = new THREE.BufferGeometry();
-const trailVertices = new Float32Array(MAX_POINTS * 3);
-trailGeometry.setAttribute('position', new THREE.BufferAttribute(trailVertices, 3));
-const trailMaterial = new THREE.LineBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.5 });
-const trailLine = new THREE.Line(trailGeometry, trailMaterial);
+const TRAIL_LENGTH_MINUTES = 25; // How long you want the tail to be
+const TRAIL_POINTS = 150; // Smoothness of the tail
+const trailGeometry = new LineGeometry();
+
+const initialPositions = [];
+for (let i = 0; i < TRAIL_POINTS; i++) {
+    initialPositions.push(0, 0, 0);
+}
+trailGeometry.setPositions(initialPositions);
+
+const trailColors = [];
+const colorHelper = new THREE.Color();
+
+// Pre-calculate gradient colors (Tail -> Head)
+for (let i = 0; i < TRAIL_POINTS; i++) {
+    // t goes from 0.0 (tail) to 1.0 (head)
+    const t = i / (TRAIL_POINTS - 1);
+    // Interpolate from Black (0,0,0) to Bright Red (1,0,2)
+    // Using a slight orange/yellow tint at the bright end makes it look hotter
+    colorHelper.setRGB(t, t * 0.2, 0);
+    trailColors.push(colorHelper.r, colorHelper.g, colorHelper.b);
+}
+trailGeometry.setColors(trailColors);
+
+const trailMaterial = new LineMaterial({
+    color: 0xffffff, // Use white so vertex colors show through correctly
+    linewidth: 4,    // CHANGE THIS NUMBER TO MAKE IT WIDER/THINNER
+    vertexColors: true, // Necessary for gradient
+    dashed: false,
+    alphaToCoverage: true, // Helps edges look smoother
+});
+
+trailMaterial.resolution.set(window.innerWidth, window.innerHeight);
+
+const trailLine = new Line2(trailGeometry, trailMaterial);
 scene.add(trailLine);
 
 const issMesh = new THREE.Mesh(
-    new THREE.SphereGeometry(0.01, 16, 16), // Made slightly larger to find it easier
-    new THREE.MeshBasicMaterial({ color: 0xff0000 })
+    new THREE.SphereGeometry(0.015, 16, 16),
+    new THREE.MeshBasicMaterial({ color: 0xff2200 })
 );
 scene.add(issMesh);
 
-let trailIndex = 0;
-
+// --- 2. THE UPDATE FUNCTION ---
 function updateISS() {
     const now = new Date();
-    const positionAndVelocity = satellite.propagate(satrec, now);
-    const positionEci = positionAndVelocity.position;
+    const flatPositionsArray = [];
 
-    if (positionEci) {
+    // A. Update the Main Satellite Dot
+    const posAndVel = satellite.propagate(satrec, now);
+    if (posAndVel.position) {
         const gmst = satellite.gstime(now);
-        const positionGd = satellite.eciToGeodetic(positionEci, gmst);
-
-        const lon = positionGd.longitude;
-        const lat = positionGd.latitude;
-        const alt = positionGd.height;
-
-        // Radius = Earth(1) + Altitude.
-        // We multiply alt by a factor if we want to "exaggerate" the height for visibility
-        const r = 1 + (alt / 6371);
-
-        const x = r * Math.cos(lat) * Math.cos(lon);
-        const y = r * Math.sin(lat);
-        const z = r * Math.cos(lat) * Math.sin(-lon); // Negative lon matches most textures
-
-        issMesh.position.set(x, y, z);
-
-        // --- Update Trail ---
-        // Shift existing points or just add a new one every few frames
-        trailVertices[trailIndex * 3] = x;
-        trailVertices[trailIndex * 3 + 1] = y;
-        trailVertices[trailIndex * 3 + 2] = z;
-
-        trailIndex = (trailIndex + 1) % MAX_POINTS;
-        trailGeometry.attributes.position.needsUpdate = true;
-    } else {
-        console.error("Satellite math failed. Check TLE strings.");
+        const posGd = satellite.eciToGeodetic(posAndVel.position, gmst);
+        const r = 1 + (posGd.height / 6371);
+        issMesh.position.set(
+            r * Math.cos(posGd.latitude) * Math.cos(posGd.longitude),
+            r * Math.sin(posGd.latitude),
+            r * Math.cos(posGd.latitude) * Math.sin(-posGd.longitude)
+        );
     }
+
+    // B. Dynamically generate the trailing line (Past trajectory)
+    for (let i = 0; i < TRAIL_POINTS; i++) {
+        // Calculate the historical time for this specific point in the line
+        // i=0 is the oldest point (tail end), i=99 is the current position (head)
+        const timeOffsetMs = (TRAIL_POINTS - 1 - i) * (TRAIL_LENGTH_MINUTES * 60000 / TRAIL_POINTS);
+        const historicalTime = new Date(now.getTime() - timeOffsetMs);
+
+        const pastPosVel = satellite.propagate(satrec, historicalTime);
+
+        if (pastPosVel.position) {
+            const pastGmst = satellite.gstime(historicalTime);
+            const pastGd = satellite.eciToGeodetic(pastPosVel.position, pastGmst);
+            const pastR = 1 + (pastGd.height / 6371);
+
+            flatPositionsArray.push(
+                pastR * Math.cos(pastGd.latitude) * Math.cos(pastGd.longitude),
+                pastR * Math.sin(pastGd.latitude),
+                pastR * Math.cos(pastGd.latitude) * Math.sin(-pastGd.longitude)
+            );
+        }
+    }
+
+    // Tell Three.js the trail has been updated
+    trailGeometry.setPositions(flatPositionsArray);
 }
 
 // --- Resize Handling ---
@@ -166,6 +204,7 @@ window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  trailMaterial.resolution.set(window.innerWidth, window.innerHeight);
 });
 
 // --- Animation Loop ---
