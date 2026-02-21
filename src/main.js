@@ -10,6 +10,7 @@ import { addUserLocationMarker } from './widgets/userLocationMarker.js';
 import { buildSatelliteMeshes } from './widgets/buildSatelliteMeshes.js';
 import { loadSatellites } from './widgets/loadSatellites.js';
 import { getSatelliteColor } from './widgets/getSatelliteColor.js';
+import { updateSatellites } from './widgets/updateSatellites.js';
 import * as service from './api/satelliteService.js'
 
 
@@ -137,64 +138,6 @@ loadSatellites({
 
 
 // --- Update Function ---
-function updateSatellites() {
-    const now = new Date();
-
-    // Loop through every active satellite
-    activeSatellites.forEach(sat => {
-        const flatPositionsArray = [];
-
-        // A. Update the Main Satellite Dot
-        const posAndVel = satellite.propagate(sat.satrec, now);
-        if (posAndVel.position) {
-            const gmst = satellite.gstime(now);
-            const posGd = satellite.eciToGeodetic(posAndVel.position, gmst);
-            const r = 1 + (posGd.height / 6371);
-            sat.mesh.position.set(
-                r * Math.cos(posGd.latitude) * Math.cos(posGd.longitude),
-                r * Math.sin(posGd.latitude),
-                r * Math.cos(posGd.latitude) * Math.sin(-posGd.longitude)
-            );
-            sat.altitudeKm = posGd.height;
-
-            if (posAndVel.velocity) {
-                sat.speedKms = Math.sqrt(
-                    (posAndVel.velocity.x * posAndVel.velocity.x) +
-                    (posAndVel.velocity.y * posAndVel.velocity.y) +
-                    (posAndVel.velocity.z * posAndVel.velocity.z)
-                );
-            }
-
-            sat.angleDeg = (THREE.MathUtils.radToDeg(Math.atan2(sat.mesh.position.z, sat.mesh.position.x)) + 360) % 360;
-        }
-
-        // B. Dynamically generate the trailing line
-        for (let i = 0; i < TRAIL_POINTS; i++) {
-            const timeOffsetMs = (TRAIL_POINTS - 1 - i) * (TRAIL_LENGTH_MINUTES * 60000 / TRAIL_POINTS);
-            const historicalTime = new Date(now.getTime() - timeOffsetMs);
-            const pastPosVel = satellite.propagate(sat.satrec, historicalTime);
-
-            if (pastPosVel.position) {
-                const pastGmst = satellite.gstime(historicalTime);
-                const pastGd = satellite.eciToGeodetic(pastPosVel.position, pastGmst);
-                const pastR = 1 + (pastGd.height / 6371);
-
-                flatPositionsArray.push(
-                    pastR * Math.cos(pastGd.latitude) * Math.cos(pastGd.longitude),
-                    pastR * Math.sin(pastGd.latitude),
-                    pastR * Math.cos(pastGd.latitude) * Math.sin(-pastGd.longitude)
-                );
-            } else {
-                // Fallback: If SGP4 math fails for an old point, push 0,0,0 to prevent Line2 crashes
-                flatPositionsArray.push(0, 0, 0);
-            }
-        }
-
-        // Apply new positions to this specific satellite's trail
-        sat.trailGeometry.setPositions(flatPositionsArray);
-    });
-}
-
 function getSatelliteDetailsText(sat) {
   const distanceKm = Math.max(0, sat.altitudeKm || 0);
   const speedRatio = Math.max(0, (sat.speedKms || 0) / 12.8);
@@ -485,7 +428,7 @@ window.addEventListener('resize', () => {
 // --- Animation Loop ---
 
 renderer.setAnimationLoop(() => {
-    updateSatellites();
+    updateSatellites({ activeSatellites, TRAIL_POINTS, TRAIL_LENGTH_MINUTES });
     planetVisuals.update();
     updateSatelliteCallout();
     controls.update();
