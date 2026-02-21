@@ -108,6 +108,9 @@ function initializeSidebar() {
       activeSatellites,
       satelliteDataMap,
     },
+    onMultiplierChange: (multiplier) => {
+        timeMultiplier = multiplier;
+    },
     onSelectSatellite: (sat) => {
       if (typeof selectSatellite === 'function') {
         selectSatellite(sat);
@@ -171,6 +174,9 @@ const satelliteDetails = document.getElementById('satelliteDetails');
 const fireLaserButton = document.getElementById('fireLaserButton');
 const infoConnectorPath = document.getElementById('infoConnectorPath');
 const infoConnectorStart = document.getElementById('infoConnectorStart');
+let timeMultiplier = 1.0; // 1.0 = real-time, 2.0 = double speed, -2.0 = reverse
+let virtualTimeMs = Date.now();
+let lastFrameTimeMs = performance.now();
 
 const calloutTyping = {
   titleTarget: '',
@@ -537,31 +543,35 @@ loadSatellites("active");
 function updateSatellites() {
     const nowMs = performance.now();
     
-    // 1. RATE LIMITING: Don't run heavy math every single frame (60fps). 
-    // Updating positions at ~10-15fps (80-120ms) is plenty for satellites.
+    // 1. VIRTUAL TIME CALCULATION
+    // Calculate how much real time passed since the last frame
+    const deltaRealTimeMs = nowMs - lastFrameTimeMs;
+    lastFrameTimeMs = nowMs;
+
+    // Advance the virtual clock (e.g., if multiplier is 10, time moves 10x faster)
+    virtualTimeMs += deltaRealTimeMs * timeMultiplier;
+
+    // 2. RATE LIMITING
+    // We still limit the heavy math to ~120ms intervals for performance
     if ((nowMs - lastSatelliteUpdateMs) < SATELLITE_UPDATE_INTERVAL_MS) {
         return;
     }
     lastSatelliteUpdateMs = nowMs;
 
-    const now = new Date();
-    const nowEpochMs = now.getTime();
-    const gmstNow = satellite.gstime(now);
+    // 3. PREPARE SATELLITE MATH
+    const vTimeDate = new Date(virtualTimeMs);
+    const gmstNow = satellite.gstime(vTimeDate);
     const numActive = activeSatellites.length;
 
-    // Safety check if mesh hasn't been built yet
     if (!satInstancedMesh) return;
 
-    // 2. THE MAIN LOOP
     for (let i = 0; i < numActive; i++) {
         const sat = activeSatellites[i];
-        
-        // Skip if satrec is invalid
         if (!sat.satrec) continue;
 
-        const posAndVel = satellite.propagate(sat.satrec, now);
+        const posAndVel = satellite.propagate(sat.satrec, vTimeDate);
 
-        // 3. THE DECAY GUARD: Check if the position exists and isn't NaN
+        // 4. THE DECAY GUARD
         if (posAndVel && posAndVel.position && !Number.isNaN(posAndVel.position.x)) {
             const posGd = satellite.eciToGeodetic(posAndVel.position, gmstNow);
             const r = 1 + (posGd.height / EARTH_RADIUS_KM);
@@ -570,15 +580,13 @@ function updateSatellites() {
             const y = r * Math.sin(posGd.latitude);
             const z = r * Math.cos(posGd.latitude) * Math.sin(-posGd.longitude);
 
-            // Update the matrix for this instance
+            // Update 3D Position
             dummy.position.set(x, y, z);
-            // Ensure scale is reset in case it was hidden previously
             dummy.scale.setScalar(1); 
             dummy.updateMatrix();
             satInstancedMesh.setMatrixAt(i, dummy.matrix);
 
-            // 4. CONDITIONAL UPDATES: Only calculate extra data for the selected satellite
-            // This saves thousands of Math.sqrt and atan2 calls per update cycle.
+            // 5. SELECTIVE METADATA (Only for clicked satellite)
             if (selectedSatellite && selectedSatellite.id === sat.id) {
                 sat.altitudeKm = posGd.height;
                 if (posAndVel.velocity && !Number.isNaN(posAndVel.velocity.x)) {
@@ -591,29 +599,12 @@ function updateSatellites() {
                 sat.angleDeg = (THREE.MathUtils.radToDeg(Math.atan2(z, x)) + 360) % 360;
             }
 
-            // 5. TRAIL UPDATES: Only run for the first few hundred (if configured)
+            // 6. TRAIL UPDATE LOOP
             if (sat.trailGeometry) {
-                const trailPositions = sat.trailPositions;
-                for (let j = 0; j < TRAIL_POINTS; j++) {
-                    const positionOffset = j * 3;
-                    const timeOffsetMs = (TRAIL_POINTS - 1 - j) * TRAIL_STEP_MS;
-                    const historicalTime = new Date(nowEpochMs - timeOffsetMs);
-                    const pastPosVel = satellite.propagate(sat.satrec, historicalTime);
-
-                    if (pastPosVel && pastPosVel.position && !Number.isNaN(pastPosVel.position.x)) {
-                        const pastGmst = satellite.gstime(historicalTime);
-                        const pastGd = satellite.eciToGeodetic(pastPosVel.position, pastGmst);
-                        const pastR = 1 + (pastGd.height / EARTH_RADIUS_KM);
-
-                        trailPositions[positionOffset] = pastR * Math.cos(pastGd.latitude) * Math.cos(pastGd.longitude);
-                        trailPositions[positionOffset + 1] = pastR * Math.sin(pastGd.latitude);
-                        trailPositions[positionOffset + 2] = pastR * Math.cos(pastGd.latitude) * Math.sin(-pastGd.longitude);
-                    }
-                }
-                sat.trailGeometry.setPositions(trailPositions);
+                updateSatelliteTrail(sat, virtualTimeMs);
             }
         } else {
-            // 6. HIDE BAD DATA: Move "dead" satellites inside the Earth or scale to 0
+            // Hide decayed or invalid satellites
             dummy.position.set(0, 0, 0);
             dummy.scale.setScalar(0);
             dummy.updateMatrix();
@@ -621,10 +612,34 @@ function updateSatellites() {
         }
     }
 
-    // 7. GPU COMMIT: Tell Three.js that the matrices have moved
     satInstancedMesh.instanceMatrix.needsUpdate = true;
 }
+function updateSatelliteTrail(sat, currentVirtualTimeMs) {
+    const trailPositions = sat.trailPositions;
+    
+    for (let j = 0; j < TRAIL_POINTS; j++) {
+        const positionOffset = j * 3;
+        
+        // Calculate the "past" based on our current virtual clock
+        // This ensures the trail follows the satellite even during time-warp
+        const timeOffsetMs = (TRAIL_POINTS - 1 - j) * TRAIL_STEP_MS;
+        const historicalTime = new Date(currentVirtualTimeMs - timeOffsetMs);
+        
+        const pastPosVel = satellite.propagate(sat.satrec, historicalTime);
 
+        if (pastPosVel && pastPosVel.position && !Number.isNaN(pastPosVel.position.x)) {
+            const pastGmst = satellite.gstime(historicalTime);
+            const pastGd = satellite.eciToGeodetic(pastPosVel.position, pastGmst);
+            const pastR = 1 + (pastGd.height / EARTH_RADIUS_KM);
+
+            trailPositions[positionOffset] = pastR * Math.cos(pastGd.latitude) * Math.cos(pastGd.longitude);
+            trailPositions[positionOffset + 1] = pastR * Math.sin(pastGd.latitude);
+            trailPositions[positionOffset + 2] = pastR * Math.cos(pastGd.latitude) * Math.sin(-pastGd.longitude);
+        }
+    }
+    
+    sat.trailGeometry.setPositions(trailPositions);
+}
 async function getSatelliteDetailsText(sat) {
   const distanceKm = Math.max(0, sat.altitudeKm || 0);
   const speedRatio = Math.max(0, (sat.speedKms || 0) / 12.8);

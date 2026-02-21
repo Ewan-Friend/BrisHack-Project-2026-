@@ -4,12 +4,12 @@ import { SIDEBAR_ID } from './ui/constants.js';
 import { ensureSidebarStyles } from './ui/styles.js';
 import { createWidget as makeWidget } from './ui/widgetFactory.js';
 import { createSidebarShell } from './ui/sidebarShell.js';
-import { setupGroupSelector } from './groupSelector.js';
 import {
   mountEnvironmentLayersSection,
   mountFooterControlsSection,
   mountSatelliteSearchSection,
-  mountSatelliteSettingsSection
+  mountSatelliteSettingsSection,
+  mountPlaybackSection
 } from './ui/sections.js';
 
 export class UIManager {
@@ -23,7 +23,8 @@ export class UIManager {
     satelliteLimit,
     onLimitChange,
     textSpeed,
-    onTextSpeedChange
+    onTextSpeedChange,
+    onMultiplierChange
   }) {
     this.postProcessing = postProcessing;
     this.environmentLayers = environmentLayers;
@@ -42,6 +43,8 @@ export class UIManager {
     this.collapseButton = null;
     this.sidebarShell = null;
     this.isCollapsed = false;
+
+    this.onMultiplierChange = onMultiplierChange;
   }
 
   createWidget(title) {
@@ -80,6 +83,13 @@ export class UIManager {
       onSelectSatellite: this.onSelectSatellite,
     });
   }
+  mountPlaybackWidget() {
+    mountPlaybackSection({
+      sidebarContent: this.sidebarContent,
+      createWidget: (title) => this.createWidget(title),
+      onMultiplierChange: this.onMultiplierChange,
+    });
+  }
 
   // New method for rendering the limit input widget
   mountSatelliteSettingsWidget() {
@@ -116,6 +126,7 @@ export class UIManager {
     
     // Mount widgets in the desired visual order
     this.mountSatelliteSearchWidget();
+    this.mountPlaybackWidget();
     this.mountSatelliteSettingsWidget(); 
     this.mountEnvironmentLayersWidget();
     this.mountFooterControls();

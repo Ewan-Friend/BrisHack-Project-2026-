@@ -417,3 +417,59 @@ export function mountFooterControlsSection({
 
   sidebar.appendChild(footer);
 }
+
+/**
+ * Mounts the Playback Control section
+ */
+export function mountPlaybackSection({ sidebarContent, createWidget, onMultiplierChange }) {
+  // Use 'contentArea' to match your widgetFactory.js exactly
+  const { container, contentArea } = createWidget('Time Control');
+
+  if (!contentArea) {
+    console.error("Widget factory failed to return 'contentArea' element");
+    return;
+  }
+
+  const wrapper = document.createElement('div');
+  wrapper.style.display = 'flex';
+  wrapper.style.flexDirection = 'column';
+  wrapper.style.gap = '12px';
+  wrapper.style.padding = '8px 0';
+
+  const speedLabel = document.createElement('div');
+  speedLabel.innerHTML = `Speed: <span style="color: #007bff; font-weight: bold;">1x</span>`;
+  speedLabel.style.fontSize = '0.9rem';
+
+  const slider = document.createElement('input');
+  slider.type = 'range';
+  slider.min = '-50';
+  slider.max = '50';
+  slider.value = '1';
+  slider.step = '1';
+  slider.style.width = '100%';
+
+  const resetBtn = document.createElement('button');
+  resetBtn.textContent = 'Reset to Real-time';
+  resetBtn.style.cursor = 'pointer';
+  resetBtn.style.marginTop = '5px';
+
+  const updateMultiplier = (val) => {
+    const multiplier = parseFloat(val);
+    speedLabel.innerHTML = `Speed: <span style="color: #007bff; font-weight: bold;">${multiplier}x</span>`;
+    if (typeof onMultiplierChange === 'function') {
+      onMultiplierChange(multiplier);
+    }
+  };
+
+  slider.addEventListener('input', (e) => updateMultiplier(e.target.value));
+  resetBtn.addEventListener('click', () => {
+    slider.value = 1;
+    updateMultiplier(1);
+  });
+
+  wrapper.append(speedLabel, slider, resetBtn);
+  
+  // Appending to contentArea fixes the undefined error
+  contentArea.appendChild(wrapper); 
+  sidebarContent.appendChild(container);
+}
