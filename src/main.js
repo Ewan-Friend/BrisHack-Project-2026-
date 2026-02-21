@@ -460,7 +460,9 @@ async function getSatelliteDetailsText(sat) {
 
   // Calculate orbital period from mean motion (revolutions per day)
   const periodMinutes = satData.MEAN_MOTION ? (1440 / satData.MEAN_MOTION) : 0;
-  const periodHours = periodMinutes / 60;
+  const periodHours = Math.floor(periodMinutes / 60);
+  const periodMinsRemainder = Math.round(periodMinutes % 60);
+  const periodDisplay = periodHours > 0 ? `${periodHours}h ${periodMinsRemainder}m` : `${periodMinsRemainder}m`;
 
   // Format epoch date (TLE epoch)
   let epochDisplay = 'N/A';
@@ -505,7 +507,7 @@ async function getSatelliteDetailsText(sat) {
 Speed: ${speedRatio.toFixed(2)}x
 Angle: ${Math.round(angleDeg)}°
 
-Period: ${periodHours.toFixed(2)}h
+Period: ${periodDisplay}
 Inclination: ${inclination}°
 Eccentricity: ${eccentricity}
 NORAD ID: ${noradId}
