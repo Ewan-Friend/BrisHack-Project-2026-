@@ -16,10 +16,10 @@ export function ensureSidebarStyles() {
       --card-bg: linear-gradient(160deg, rgba(15, 25, 46, 0.88), rgba(10, 19, 35, 0.6));
       --card-border: rgba(162, 197, 255, 0.22);
       position: fixed;
-      top: 50px;
+      top: 0;
       right: 0;
       width: 320px;
-      height: calc(100vh - 50px);
+      height: 100vh;
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
@@ -387,7 +387,7 @@ export function ensureTopBarStyles() {
       align-items: center;
       justify-content: space-between;
       padding: 0 20px;
-      z-index: 100;
+      z-index: 50;
       overflow: hidden;
     }
 
