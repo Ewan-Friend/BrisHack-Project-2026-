@@ -11,6 +11,7 @@ dependencies = [
     "celest",
     "uvicorn",
     "python-dotenv",
+    "supabase",
 ]
 
 [project.optional-dependencies]
