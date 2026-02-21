@@ -93,7 +93,7 @@ globe.material.onBeforeCompile = (shader) => {
       vec4 texelRoughness = texture2D( roughnessMap, vRoughnessMapUv );
       // Invert the green channel so water (white) becomes smooth (0.0) and land (black) becomes rough (1.0)
       // Clamp slightly so ocean is not a perfect mirror.
-      roughnessFactor *= clamp(1.0 - texelRoughness.g, 0.1, 1.0);
+      roughnessFactor *= clamp(1.0 - texelRoughness.g, 0.4, 1.0);
     #endif
     `
   );
