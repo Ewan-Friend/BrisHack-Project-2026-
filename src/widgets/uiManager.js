@@ -9,10 +9,11 @@ import {
 } from './ui/sections.js';
 
 export class UIManager {
-  constructor({ postProcessing, environmentLayers, centerLocationButton }) {
+  constructor({ postProcessing, environmentLayers, centerLocationButton, onResetCameraView }) {
     this.postProcessing = postProcessing;
     this.environmentLayers = environmentLayers;
     this.centerLocationButton = centerLocationButton;
+    this.onResetCameraView = onResetCameraView;
 
     this.sidebar = null;
     this.sidebarContent = null;
@@ -69,6 +70,7 @@ export class UIManager {
       sidebar: this.sidebar,
       postProcessing: this.postProcessing,
       centerLocationButton: this.centerLocationButton,
+      onResetCameraView: this.onResetCameraView,
     });
   }
 

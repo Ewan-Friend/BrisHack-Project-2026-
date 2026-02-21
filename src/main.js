@@ -26,9 +26,11 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
 const centerLocationButton = document.getElementById('centerLocationButton');
+const defaultCameraPosition = new THREE.Vector3(0, 0, 3);
+const defaultCameraTarget = new THREE.Vector3(0, 0, 0);
 
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 0, 3);
+camera.position.copy(defaultCameraPosition);
 const planetVisuals = setupPlanetVisuals({ scene, camera, renderer });
 setupSidebar({
   postProcessing: {
@@ -40,6 +42,7 @@ setupSidebar({
     atmosphereLayer: planetVisuals.atmosphereLayer,
   },
   centerLocationButton,
+  onResetCameraView: () => resetCameraToStartView(),
 });
 
 // --- Controls ---
@@ -695,48 +698,72 @@ function selectSatellite(sat) {
   animateCamera();
 }
 
+function animateCameraToDefaultView() {
+  isAnimatingCameraRef.current = true;
+  controls.enabled = false;
+
+  const duration = 1000;
+  const startTime = Date.now();
+  const startPosition = camera.position.clone();
+  const startTarget = controls.target.clone();
+
+  const animateCamera = () => {
+    const elapsed = Date.now() - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const easeProgress = 1 - Math.pow(1 - progress, 3);
+
+    camera.position.lerpVectors(startPosition, defaultCameraPosition, easeProgress);
+    controls.target.lerpVectors(startTarget, defaultCameraTarget, easeProgress);
+    camera.lookAt(controls.target);
+
+    if (progress < 1) {
+      requestAnimationFrame(animateCamera);
+      return;
+    }
+
+    camera.position.copy(defaultCameraPosition);
+    controls.target.copy(defaultCameraTarget);
+    camera.lookAt(defaultCameraTarget);
+    controls.update();
+    isAnimatingCameraRef.current = false;
+    controls.enabled = true;
+  };
+
+  animateCamera();
+}
+
+function clearSelectedSatelliteState() {
+  selectedSatellite = null;
+  calloutTyping.active = false;
+  calloutLayout.initialized = false;
+  calloutReveal.active = false;
+  calloutReveal.progress = 0;
+  infoBox.classList.remove('visible');
+  if (fireLaserButton) {
+    fireLaserButton.disabled = true;
+  }
+}
+
+function resetCameraToStartView() {
+  if (isAnimatingCameraRef.current) {
+    return;
+  }
+
+  clearSelectedSatelliteState();
+  animateCameraToDefaultView();
+}
+
 function deselectSatellite() {
   if (!selectedSatellite) {
     return;
   }
 
-  selectedSatellite = null;
-  isAnimatingCameraRef.current = true;
-  controls.enabled = false;
-  calloutTyping.active = false;
-  calloutLayout.initialized = false;
-  calloutReveal.active = false;
-  calloutReveal.progress = 0;
+  if (isAnimatingCameraRef.current) {
+    return;
+  }
 
-  // Hide callout
-  infoBox.classList.remove('visible');
-
-  // Animate camera back to original position
-  const duration = 1000; // milliseconds
-  const startTime = Date.now();
-
-  const startPosition = camera.position.clone();
-  const targetPosition = new THREE.Vector3(0, 0, 3);
-
-  const animateCamera = () => {
-    const elapsed = Date.now() - startTime;
-    const progress = Math.min(elapsed / duration, 1);
-
-    // Smooth easing function
-    const easeProgress = 1 - Math.pow(1 - progress, 3);
-
-    camera.position.lerpVectors(startPosition, targetPosition, easeProgress);
-    camera.lookAt(0, 0, 0);
-
-    if (progress < 1) {
-      requestAnimationFrame(animateCamera);
-    } else {
-      isAnimatingCameraRef.current = false;
-      controls.enabled = true;
-    }
-  };
-
-  animateCamera();
+  clearSelectedSatelliteState();
+  animateCameraToDefaultView();
 }
 
 // Add click event listener

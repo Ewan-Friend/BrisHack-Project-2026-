@@ -200,6 +200,13 @@ export function ensureSidebarStyles() {
       transition: opacity 0.14s ease, transform 0.18s ease;
     }
 
+    .sidebar-footer-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
     #${SIDEBAR_ID}.is-collapsed .sidebar-content,
     #${SIDEBAR_ID}.is-collapsed .sidebar-footer {
       opacity: 0;
@@ -223,7 +230,27 @@ export function ensureSidebarStyles() {
       transition: background 0.15s ease, border-color 0.15s ease;
     }
 
+    .sidebar-reset-button {
+      border: 1px solid rgba(166, 211, 255, 0.52);
+      border-radius: 999px;
+      background: rgba(12, 28, 54, 0.78);
+      color: #e2efff;
+      padding: 7px 11px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-family: "Electrolize", "Segoe UI", sans-serif;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
     .sidebar-postfx-button:hover {
+      background: rgba(20, 45, 80, 0.9);
+      border-color: rgba(200, 227, 255, 0.82);
+    }
+
+    .sidebar-reset-button:hover {
       background: rgba(20, 45, 80, 0.9);
       border-color: rgba(200, 227, 255, 0.82);
     }
