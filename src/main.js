@@ -46,7 +46,7 @@ function setCenterLocationButtonEnabled(enabled) {
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.copy(defaultCameraPosition);
 const planetVisuals = setupPlanetVisuals({ scene, camera, renderer });
-setupSidebar({
+const sidebarUi = setupSidebar({
   postProcessing: {
     cycleMode: () => planetVisuals.cyclePostFxMode(),
     getActiveMode: () => planetVisuals.getActivePostFxMode(),
@@ -323,6 +323,7 @@ async function loadSatellites(group = "active") {
 // Initialize the group selector widget and the initial load
 setupGroupSelector({
     initialGroup: 'active',
+    mountTarget: sidebarUi?.sidebarContent,
     onGroupChange: async (newGroup) => {
         console.log(`Switching to group: ${newGroup}...`);
         clearSatellites();

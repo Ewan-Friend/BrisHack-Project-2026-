@@ -265,11 +265,6 @@ export function ensureSidebarStyles() {
       --panel-text: #dceafe;
       --card-bg: linear-gradient(160deg, rgba(15, 25, 46, 0.88), rgba(10, 19, 35, 0.6));
       --card-border: rgba(162, 197, 255, 0.22);
-      position: fixed;
-      top: 64px;
-      left: 16px;
-      width: min(260px, calc(100vw - 32px));
-      z-index: 19;
     }
 
     .tracked-group-widget__content {
@@ -364,12 +359,6 @@ export function ensureSidebarStyles() {
         width: 34px;
         height: 34px;
         border-radius: 10px;
-      }
-
-      .tracked-group-widget {
-        top: 44px;
-        left: 10px;
-        width: min(230px, calc(100vw - 20px));
       }
     }
   `;
