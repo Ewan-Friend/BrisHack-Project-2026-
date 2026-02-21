@@ -4,6 +4,10 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
 const issJson = {
     "OBJECT_NAME": "ATLAS CENTAUR 2",
@@ -41,6 +45,76 @@ const scene = new THREE.Scene();
 
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(0, 0, 3);
+
+const POST_FX_MODES = [
+  { key: 'high', label: 'High', usePostProcessing: true, bloomResolutionScale: 1.0 },
+  { key: 'medium', label: 'Medium', usePostProcessing: true, bloomResolutionScale: 0.75 },
+  { key: 'low', label: 'Low', usePostProcessing: false, bloomResolutionScale: 0.75 },
+];
+let postFxModeIndex = 1;
+let activePostFxMode = POST_FX_MODES[postFxModeIndex];
+
+// --- Post Processing ---
+
+const composer = new EffectComposer(renderer);
+const renderPass = new RenderPass(scene, camera);
+composer.addPass(renderPass);
+
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(
+    window.innerWidth * activePostFxMode.bloomResolutionScale,
+    window.innerHeight * activePostFxMode.bloomResolutionScale
+  )
+);
+bloomPass.threshold = 0.15;
+bloomPass.strength = 0.4;
+bloomPass.radius = 0.5;
+composer.addPass(bloomPass);
+
+const outputPass = new OutputPass();
+composer.addPass(outputPass);
+
+const postFxToggleButton = document.createElement('button');
+postFxToggleButton.style.position = 'fixed';
+postFxToggleButton.style.top = '16px';
+postFxToggleButton.style.left = '16px';
+postFxToggleButton.style.padding = '8px 12px';
+postFxToggleButton.style.border = '1px solid rgba(180, 215, 255, 0.45)';
+postFxToggleButton.style.borderRadius = '10px';
+postFxToggleButton.style.background = 'rgba(8, 18, 34, 0.7)';
+postFxToggleButton.style.color = '#d7ecff';
+postFxToggleButton.style.fontFamily = 'system-ui, -apple-system, Segoe UI, sans-serif';
+postFxToggleButton.style.fontSize = '12px';
+postFxToggleButton.style.fontWeight = '600';
+postFxToggleButton.style.letterSpacing = '0.01em';
+postFxToggleButton.style.cursor = 'pointer';
+postFxToggleButton.style.zIndex = '12';
+document.body.appendChild(postFxToggleButton);
+
+function applyPostFxMode(mode) {
+  activePostFxMode = mode;
+  postFxToggleButton.textContent = `Post FX: ${mode.label}`;
+
+  if (!mode.usePostProcessing) {
+    bloomPass.enabled = false;
+    outputPass.enabled = false;
+    return;
+  }
+
+  bloomPass.enabled = true;
+  outputPass.enabled = true;
+  bloomPass.setSize(
+    window.innerWidth * mode.bloomResolutionScale,
+    window.innerHeight * mode.bloomResolutionScale
+  );
+}
+
+postFxToggleButton.addEventListener('click', () => {
+  postFxModeIndex = (postFxModeIndex + 1) % POST_FX_MODES.length;
+  applyPostFxMode(POST_FX_MODES[postFxModeIndex]);
+});
+
+applyPostFxMode(activePostFxMode);
 
 // --- Controls ---
 
@@ -296,7 +370,11 @@ const satrec = satellite.json2satrec(issJson);
 // Creating the visual marker (the red dot)
 const TRAIL_LENGTH_MINUTES = 25; // How long you want the tail to be
 const TRAIL_POINTS = 150; // Smoothness of the tail
+const TRAIL_UPDATE_INTERVAL_MS = 120; // Recompute trajectory ~8 times/sec instead of every frame.
 const trailGeometry = new LineGeometry();
+const trailPositions = new Float32Array(TRAIL_POINTS * 3);
+const historicalTime = new Date();
+let lastTrailUpdateMs = 0;
 
 const initialPositions = [];
 for (let i = 0; i < TRAIL_POINTS; i++) {
@@ -340,7 +418,7 @@ scene.add(issMesh);
 // --- 2. THE UPDATE FUNCTION ---
 function updateISS() {
     const now = new Date();
-    const flatPositionsArray = [];
+    const nowMs = now.getTime();
 
     // A. Update the Main Satellite Dot
     const posAndVel = satellite.propagate(satrec, now);
@@ -356,29 +434,33 @@ function updateISS() {
     }
 
     // B. Dynamically generate the trailing line (Past trajectory)
+    if (nowMs - lastTrailUpdateMs < TRAIL_UPDATE_INTERVAL_MS) {
+        return;
+    }
+    lastTrailUpdateMs = nowMs;
+
     for (let i = 0; i < TRAIL_POINTS; i++) {
         // Calculate the historical time for this specific point in the line
         // i=0 is the oldest point (tail end), i=99 is the current position (head)
         const timeOffsetMs = (TRAIL_POINTS - 1 - i) * (TRAIL_LENGTH_MINUTES * 60000 / TRAIL_POINTS);
-        const historicalTime = new Date(now.getTime() - timeOffsetMs);
+        historicalTime.setTime(nowMs - timeOffsetMs);
 
         const pastPosVel = satellite.propagate(satrec, historicalTime);
+        const baseIndex = i * 3;
 
         if (pastPosVel.position) {
             const pastGmst = satellite.gstime(historicalTime);
             const pastGd = satellite.eciToGeodetic(pastPosVel.position, pastGmst);
             const pastR = 1 + (pastGd.height / 6371);
 
-            flatPositionsArray.push(
-                pastR * Math.cos(pastGd.latitude) * Math.cos(pastGd.longitude),
-                pastR * Math.sin(pastGd.latitude),
-                pastR * Math.cos(pastGd.latitude) * Math.sin(-pastGd.longitude)
-            );
+            trailPositions[baseIndex] = pastR * Math.cos(pastGd.latitude) * Math.cos(pastGd.longitude);
+            trailPositions[baseIndex + 1] = pastR * Math.sin(pastGd.latitude);
+            trailPositions[baseIndex + 2] = pastR * Math.cos(pastGd.latitude) * Math.sin(-pastGd.longitude);
         }
     }
 
     // Tell Three.js the trail has been updated
-    trailGeometry.setPositions(flatPositionsArray);
+    trailGeometry.setPositions(trailPositions);
 }
 
 // --- Resize Handling ---
@@ -387,6 +469,13 @@ window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+  if (activePostFxMode.usePostProcessing) {
+    bloomPass.setSize(
+      window.innerWidth * activePostFxMode.bloomResolutionScale,
+      window.innerHeight * activePostFxMode.bloomResolutionScale
+    );
+  }
   trailMaterial.resolution.set(window.innerWidth, window.innerHeight);
 });
 
@@ -397,5 +486,9 @@ renderer.setAnimationLoop(() => {
     cloudLayer.rotation.y += 0.00008;
     updateAtmosphereSunDirection();
     controls.update();
-    renderer.render(scene, camera);
+    if (activePostFxMode.usePostProcessing) {
+      composer.render();
+    } else {
+      renderer.render(scene, camera);
+    }
 });
