@@ -7,8 +7,7 @@ from services.supabase_service import supabase
 
 router = APIRouter()
 
-
-@router.get("/satellites/cache")    
+  
 @router.api_route("/satellites/cache", methods=["GET", "POST"])
 async def cache_satellites(group: str = Query(..., description="CelesTrak group name")):
     fetched_data = get_satellites_by_group(group)
@@ -90,17 +89,14 @@ async def list_satellites(group: str = Query("visual", description="CelesTrak gr
         .eq("satellite_category_map.categories.name", group) \
         .execute()
 
-    # 2. If data exists in DB, return it immediately
     if db_response.data and len(db_response.data) > 0:
         print(f"Serving '{group}' from database.")
         return db_response.data
 
-    # 3. If no data, trigger the cache logic (fetch from API and save)
     print(f"Data for '{group}' not found. Fetching from CelesTrak...")
     cache_result = await cache_satellites(group=group)
     
     if cache_result.get("status") == "success":
-        # Re-query the DB now that it's populated
         updated_db = supabase.table("satellites") \
             .select("*, satellite_category_map!inner(category_id, categories!inner(name))") \
             .eq("satellite_category_map.categories.name", group) \
@@ -110,7 +106,48 @@ async def list_satellites(group: str = Query("visual", description="CelesTrak gr
     return {"message": "Failed to fetch data from API", "details": cache_result}
 
 
-# Gets a single satellite based by on id
-@router.get("/satellites/{satellite_norad_id}", response_model=SatelliteData)
-def get_satellite(satellite_norad_id: str):
-    return get_satellite_by_id(satellite_norad_id)
+# Gets a single satellite by ID - Database First
+@router.get("/satellites/{satellite_norad_id}")
+async def get_satellite(satellite_norad_id: str):
+
+    db_res = supabase.table("satellites") \
+        .select("*, orbital_elements(*)") \
+        .eq("norad_cat_id", satellite_norad_id) \
+        .single() \
+        .execute()
+
+    if db_res.data:
+        print(f"Serving satellite {satellite_norad_id} from database.")
+        return db_res.data
+
+    print(f"Satellite {satellite_norad_id} not in DB. Fetching live...")
+    live_sat = get_satellite_by_id(satellite_norad_id)
+
+    if not live_sat:
+        raise HTTPException(status_code=404, detail="Satellite not found")
+
+    try:
+        supabase.table("satellites").upsert({
+            "norad_cat_id": live_sat["NORAD_CAT_ID"],
+            "object_name": live_sat["OBJECT_NAME"],
+            "object_id": live_sat["OBJECT_ID"]
+        }, on_conflict="norad_cat_id").execute()
+
+        supabase.table("orbital_elements").upsert({
+            "norad_cat_id": live_sat["NORAD_CAT_ID"],
+            "epoch": live_sat["EPOCH"],
+            "mean_motion": live_sat["MEAN_MOTION"],
+            "eccentricity": live_sat["ECCENTRICITY"],
+            "inclination": live_sat["INCLINATION"],
+            "ra_of_asc_node": live_sat["RA_OF_ASC_NODE"],
+            "arg_of_pericenter": live_sat["ARG_OF_PERICENTER"],
+            "mean_anomaly": live_sat["MEAN_ANOMALY"],
+            "bstar": live_sat["BSTAR"],
+            "mean_motion_dot": live_sat.get("MEAN_MOTION_DOT"),
+            "mean_motion_ddot": live_sat.get("MEAN_MOTION_DDOT")
+        }, on_conflict="norad_cat_id").execute()
+
+    except Exception as e:
+        print(f"Error auto-caching single satellite: {e}")
+    
+    return live_sat
