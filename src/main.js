@@ -130,8 +130,8 @@ globe.material.onBeforeCompile = (shader) => {
       float sunsetBand =
         smoothstep(-0.32, -0.02, sunNdotL) *
         (1.0 - smoothstep(0.03, 0.24, sunNdotL));
-      vec3 sunsetColor = vec3(0.55, 0.32, 0.18);
-      totalEmissiveRadiance += sunsetColor * sunsetBand * 0.028;
+      vec3 sunsetColor = vec3(0.35, 0.22, 0.14);
+      totalEmissiveRadiance += sunsetColor * sunsetBand * 0.012;
     #endif`
   );
 };
@@ -166,12 +166,89 @@ cloudLayer.material.onBeforeCompile = (shader) => {
       float cloudSunsetBand =
         smoothstep(-0.40, -0.06, sunNdotL) *
         (1.0 - smoothstep(0.06, 0.30, sunNdotL));
-      vec3 cloudSunsetColor = vec3(0.72, 0.44, 0.28);
-      totalEmissiveRadiance += cloudSunsetColor * cloudSunsetBand * 0.06;
+      vec3 cloudSunsetColor = vec3(0.46, 0.31, 0.22);
+      totalEmissiveRadiance += cloudSunsetColor * cloudSunsetBand * 0.02;
     #endif`
   );
 };
 scene.add(cloudLayer);
+
+// --- Atmosphere Halo (Fresnel Glow) ---
+
+const atmosphereUniforms = {
+  sunDirection: { value: new THREE.Vector3(1, 0, 0) },
+  dayColor: { value: new THREE.Color(0x6e9de6) },
+  twilightColor: { value: new THREE.Color(0xd7b48c) },
+  nightColor: { value: new THREE.Color(0x1d2e4f) },
+  intensity: { value: 0.20 },
+  rimPower: { value: 2.3 },
+  rimStart: { value: 0.012 },
+  alphaMax: { value: 0.18 },
+};
+
+const atmosphereVertexShader = `
+  varying vec3 vWorldNormal;
+  varying vec3 vWorldPosition;
+
+  void main() {
+    vec4 worldPos = modelMatrix * vec4(position, 1.0);
+    vWorldPosition = worldPos.xyz;
+    vWorldNormal = normalize(mat3(modelMatrix) * normal);
+    gl_Position = projectionMatrix * viewMatrix * worldPos;
+  }
+`;
+
+const atmosphereFragmentShader = `
+  uniform vec3 sunDirection;
+  uniform vec3 dayColor;
+  uniform vec3 twilightColor;
+  uniform vec3 nightColor;
+  uniform float intensity;
+  uniform float rimPower;
+  uniform float rimStart;
+  uniform float alphaMax;
+
+  varying vec3 vWorldNormal;
+  varying vec3 vWorldPosition;
+
+  void main() {
+    vec3 normalDir = normalize(vWorldNormal);
+    vec3 viewDirection = normalize(cameraPosition - vWorldPosition);
+    vec3 sunDir = normalize(sunDirection);
+
+    float rimRaw = 1.0 - max(dot(normalDir, viewDirection), 0.0);
+    float rim = pow(rimRaw, rimPower);
+    rim = smoothstep(rimStart, 1.0, rim);
+
+    float sunAmount = dot(normalDir, sunDir);
+    float day = smoothstep(-0.05, 0.55, sunAmount);
+    float twilight = smoothstep(-0.30, 0.04, sunAmount) * (1.0 - smoothstep(0.04, 0.34, sunAmount));
+    float night = 1.0 - smoothstep(-0.20, 0.12, sunAmount);
+
+    vec3 color =
+      dayColor * day +
+      twilightColor * twilight * 0.35 +
+      nightColor * night * 0.35;
+
+    float alpha = rim * (0.08 + day * 0.82 + twilight * 0.48 + night * 0.30) * intensity;
+    alpha = clamp(alpha, 0.0, alphaMax);
+    gl_FragColor = vec4(color, alpha);
+  }
+`;
+
+const atmosphereLayer = new THREE.Mesh(
+  new THREE.SphereGeometry(1.022, 128, 128),
+  new THREE.ShaderMaterial({
+    uniforms: atmosphereUniforms,
+    vertexShader: atmosphereVertexShader,
+    fragmentShader: atmosphereFragmentShader,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.BackSide,
+  })
+);
+scene.add(atmosphereLayer);
 
 // --- Starfield ---
 // 2000 random points scattered in a large cube around the scene
@@ -196,6 +273,13 @@ scene.add(new THREE.HemisphereLight(0x8fb8ff, 0x1f120a, 0.05));
 const sunLight = new THREE.DirectionalLight(0xfff1d6, 2.2);
 sunLight.position.set(5, 3, 5);
 scene.add(sunLight);
+
+const atmosphereSunDirection = new THREE.Vector3();
+function updateAtmosphereSunDirection() {
+  atmosphereSunDirection.copy(sunLight.position).normalize();
+  atmosphereUniforms.sunDirection.value.copy(atmosphereSunDirection);
+}
+updateAtmosphereSunDirection();
 
 // Soft moonlight from the opposite direction keeps clouds faintly visible at night.
 const moonLight = new THREE.DirectionalLight(0xb9cfff, 0.12);
@@ -311,6 +395,7 @@ window.addEventListener('resize', () => {
 renderer.setAnimationLoop(() => {
     updateISS();
     cloudLayer.rotation.y += 0.00008;
+    updateAtmosphereSunDirection();
     controls.update();
     renderer.render(scene, camera);
 });
