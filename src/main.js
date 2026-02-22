@@ -420,6 +420,7 @@ for (let i = 0; i < TRAIL_POINTS; i++) {
 let lastSatelliteUpdateMs = 0;
 let satelliteLoadToken = 0;
 let satelliteLoadController = null;
+let isSatelliteLoadInProgress = false;
 let lastOffscreenUpdateMs = 0;
 let offscreenUpdateCursor = 0;
 let earthLaserHitCount = 0;
@@ -721,6 +722,7 @@ async function loadSatellites(group = "active") {
     satelliteLoadController = new AbortController();
 
     try {
+        isSatelliteLoadInProgress = true;
         initializeSidebar();
         clearSatellites(); 
 
@@ -780,6 +782,14 @@ async function loadSatellites(group = "active") {
     } catch (error) {
         if (error?.name === 'AbortError') return;
         console.error("Failed to load satellites.", error);
+    } finally {
+        if (loadToken === satelliteLoadToken) {
+            isSatelliteLoadInProgress = false;
+            if (!earthExplosionTriggered) {
+                // One final pass re-enables trails after chunked loading settles.
+                buildSatelliteMeshes();
+            }
+        }
     }
 }
 
