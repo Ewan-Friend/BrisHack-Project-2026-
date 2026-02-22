@@ -73,7 +73,7 @@
         font-family: "Electrolize", "Segoe UI", sans-serif;
       }
       #fireLaserButton {
-        margin-top: 10px;
+        margin-top: 0;
         padding: 7px 11px;
         border-radius: 8px;
         border: 1px solid rgba(24, 245, 255, 0.8);
@@ -96,7 +96,7 @@
         box-shadow: none;
       }
       #showOrbitButton {
-        margin-top: 10px;
+        margin-top: 0;
         padding: 7px 11px;
         border-radius: 8px;
         border: 1px solid rgba(24, 245, 255, 0.8);
@@ -117,6 +117,13 @@
         opacity: 0.45;
         cursor: not-allowed;
         box-shadow: none;
+      }
+      .satellite-action-buttons {
+        margin-top: 10px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: nowrap;
+        align-items: center;
       }
       #centerLocationButton {
         position: fixed;
@@ -182,8 +189,10 @@
       <div id="infoTitle"></div>
       <div id="infoCard">
         <p id="satelliteDetails"></p>
-        <button id="fireLaserButton" type="button" disabled>Fire Laser</button>
-        <button id="showOrbitButton" type="button" disabled>Show Orbit</button>
+        <div class="satellite-action-buttons">
+          <button id="fireLaserButton" type="button" disabled>Fire Laser</button>
+          <button id="showOrbitButton" type="button" disabled>Show Orbit</button>
+        </div>
       </div>
     </div>
     <script type="module" src="/src/main.js"></script>
