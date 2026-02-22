@@ -30,7 +30,18 @@ export function mountSatelliteSearchSection({ sidebarContent, createWidget, sate
   const RESULT_ROW_HEIGHT_PX = 36;
   const RESULT_OVERSCAN_ROWS = 8;
 
-  const { container, contentArea } = createWidget('Satellite Search');
+  const { container, contentArea, heading } = createWidget('Satellite Search');
+  const titleText = document.createElement('span');
+  titleText.textContent = 'Satellite Search';
+  const randomButton = document.createElement('button');
+  randomButton.type = 'button';
+  randomButton.className = 'sidebar-widget__action-button';
+  randomButton.setAttribute('aria-label', 'Pick a random satellite');
+  randomButton.title = 'Random satellite';
+  randomButton.textContent = '🎲';
+  heading.classList.add('sidebar-widget__title--with-action');
+  heading.textContent = '';
+  heading.append(titleText, randomButton);
   const searchInput = document.createElement('input');
   searchInput.type = 'search';
   searchInput.className = 'sidebar-search';
@@ -229,6 +240,24 @@ export function mountSatelliteSearchSection({ sidebarContent, createWidget, sate
     }
   }
 
+  function pickRandomSatellite() {
+    const activeList = satelliteData?.activeSatellites;
+    if (!Array.isArray(activeList) || activeList.length === 0) {
+      renderMessage('Loading satellites...');
+      return;
+    }
+    const randomIndex = Math.floor(Math.random() * activeList.length);
+    const randomSat = activeList[randomIndex];
+    if (!randomSat) {
+      return;
+    }
+    searchInput.value = '';
+    clearResults();
+    if (onSelectSatellite) {
+      onSelectSatellite(randomSat);
+    }
+  }
+
   resultsList.addEventListener('scroll', scheduleRender);
 
   resultsList.addEventListener('touchstart', (event) => {
@@ -279,6 +308,12 @@ export function mountSatelliteSearchSection({ sidebarContent, createWidget, sate
     if (!container.contains(event.target)) {
       clearResults();
     }
+  });
+
+  randomButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    pickRandomSatellite();
   });
 
   contentArea.append(searchInput, resultsList);

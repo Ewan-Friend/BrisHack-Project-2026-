@@ -10,5 +10,5 @@ export function createWidget(title) {
   contentArea.className = 'sidebar-widget__content';
 
   container.append(heading, contentArea);
-  return { container, contentArea };
+  return { container, contentArea, heading };
 }

@@ -112,6 +112,39 @@ export function ensureSidebarStyles() {
       border-bottom: 1px solid rgba(162, 197, 255, 0.28);
     }
 
+    .sidebar-widget__title--with-action {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .sidebar-widget__action-button {
+      width: 26px;
+      height: 26px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(24, 245, 255, 0.58);
+      border-radius: 8px;
+      background: rgba(11, 28, 52, 0.84);
+      color: #9ee9ff;
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0;
+      transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+    }
+
+    .sidebar-widget__action-button:hover {
+      background: rgba(18, 44, 79, 0.96);
+      border-color: rgba(163, 226, 255, 0.86);
+    }
+
+    .sidebar-widget__action-button:active {
+      transform: scale(0.96);
+    }
+
     .sidebar-widget__content {
       display: flex;
       flex-direction: column;
