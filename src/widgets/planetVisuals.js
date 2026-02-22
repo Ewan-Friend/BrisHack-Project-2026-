@@ -455,6 +455,7 @@ export function setupPlanetVisuals({ scene, camera, renderer }) {
 
   return {
     applyImpactDamage: planetDeformation.applyImpactDamage,
+    resetImpactDamage: planetDeformation.resetImpactDamage,
     globe,
     cloudLayer,
     atmosphereLayer,

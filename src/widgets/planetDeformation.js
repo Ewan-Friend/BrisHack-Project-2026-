@@ -100,6 +100,35 @@ export function createPlanetDeformation({ globe, cloudLayer }) {
     geometry.computeBoundingSphere();
   }
 
+  function restoreMeshToBaseShape(mesh) {
+    const geometry = mesh.geometry;
+    const positionAttribute = geometry.getAttribute('position');
+    const positionArray = positionAttribute.array;
+    const baseRadii = getBaseRadii(mesh);
+
+    for (let i = 0; i < positionAttribute.count; i += 1) {
+      const offset = i * 3;
+      const x = positionArray[offset];
+      const y = positionArray[offset + 1];
+      const z = positionArray[offset + 2];
+      const len = Math.sqrt((x * x) + (y * y) + (z * z));
+      if (len <= 0.00001) {
+        continue;
+      }
+
+      const baseRadius = baseRadii[i];
+      const scale = baseRadius / len;
+      positionArray[offset] = x * scale;
+      positionArray[offset + 1] = y * scale;
+      positionArray[offset + 2] = z * scale;
+    }
+
+    positionAttribute.needsUpdate = true;
+    geometry.computeVertexNormals();
+    geometry.getAttribute('normal').needsUpdate = true;
+    geometry.computeBoundingSphere();
+  }
+
   function applyImpactDamage(localImpactDirection) {
     const centerDirection = localImpactDirection.clone().normalize();
 
@@ -128,8 +157,14 @@ export function createPlanetDeformation({ globe, cloudLayer }) {
     });
   }
 
+  function resetImpactDamage() {
+    restoreMeshToBaseShape(globe);
+    restoreMeshToBaseShape(cloudLayer);
+  }
+
   return {
     applyImpactDamage,
+    resetImpactDamage,
     update: () => {},
   };
 }

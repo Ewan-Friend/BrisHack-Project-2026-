@@ -330,6 +330,10 @@ let satelliteLoadToken = 0;
 let satelliteLoadController = null;
 let lastOffscreenUpdateMs = 0;
 let offscreenUpdateCursor = 0;
+let earthLaserHitCount = 0;
+let earthExplosionTriggered = false;
+let lastDestructiveEffectsUpdateMs = performance.now();
+let earthResetTimeoutId = null;
 const visibilityProbeNdc = new THREE.Vector3();
 
 const sharedTrailMaterial = new LineMaterial({
@@ -462,6 +466,10 @@ function getFilteredSatelliteKeys() {
 }
 
 function buildSatelliteMeshes() {
+  if (earthExplosionTriggered) {
+    return;
+  }
+
   const satKeys = getFilteredSatelliteKeys().slice(0, currentSatelliteLimit);
     const numSatellites = satKeys.length;
     
@@ -609,6 +617,10 @@ function clearSatellites() {
 }
 
 async function loadSatellites(group = "active") {
+    if (earthExplosionTriggered) {
+        return;
+    }
+
     const loadToken = ++satelliteLoadToken;
     const CHUNK_SIZE = 500;
     let loadedCount = 0;
@@ -623,6 +635,10 @@ async function loadSatellites(group = "active") {
         // Keep loading until the currently selected filter has enough satellites
         // (or until the API runs out of data).
         while (true) {
+            if (earthExplosionTriggered) {
+                break;
+            }
+
             const filteredCount = getFilteredSatelliteKeys().length;
             if (filteredCount >= currentSatelliteLimit) {
                 break;
@@ -645,6 +661,7 @@ async function loadSatellites(group = "active") {
             });
 
             if (loadToken !== satelliteLoadToken) break;
+            if (earthExplosionTriggered) break;
 
             // If the API runs out of satellites before we hit our filtered limit, stop.
             if (!chunk || !Array.isArray(chunk) || chunk.length === 0) {
@@ -976,11 +993,238 @@ planetVisuals.globe.add(impactFxLayer);
 const activeLaserEffects = [];
 const activeImpactEffects = [];
 const impactAlignmentAxis = new THREE.Vector3(0, 0, 1);
+const EARTH_HITS_TO_EXPLODE = 10;
+const EARTH_DEBRIS_COUNT = 260;
+const EARTH_DEBRIS_MIN_SPEED = 0.3;
+const EARTH_DEBRIS_MAX_SPEED = 0.95;
+const EARTH_DEBRIS_MIN_LIFETIME_MS = 5200;
+const EARTH_DEBRIS_MAX_LIFETIME_MS = 9200;
+const EARTH_SHOCKWAVE_COUNT = 4;
+const EARTH_SHOCKWAVE_DURATION_MS = 1700;
+const EARTH_FLASH_DURATION_MS = 720;
+const EARTH_RESET_DELAY_MS = 5500;
+const LASER_CHARGE_DURATION_MS = 120;
+const LASER_BEAM_DURATION_MS = 320;
+const LASER_CORE_RADIUS = 0.0038;
+const LASER_GLOW_RADIUS = 0.0095;
+const LASER_MUZZLE_RADIUS = 0.018;
+const earthDebrisLayer = new THREE.Group();
+scene.add(earthDebrisLayer);
+const explosionFxLayer = new THREE.Group();
+scene.add(explosionFxLayer);
+const activeEarthDebris = [];
+const activeExplosionShockwaves = [];
+const activeExplosionFlashes = [];
 
-function spawnLaserBeam(startWorldPoint, endWorldPoint) {
-  const beamGeometry = new THREE.BufferGeometry().setFromPoints([startWorldPoint, endWorldPoint]);
-  const beamMaterial = new THREE.LineBasicMaterial({
-    color: 0xff5f66,
+function createEarthDebrisPiece() {
+  const size = THREE.MathUtils.randFloat(0.02, 0.07);
+  const geometry = new THREE.IcosahedronGeometry(size, 0);
+  const material = new THREE.MeshStandardMaterial({
+    color: new THREE.Color().setHSL(
+      THREE.MathUtils.randFloat(0.06, 0.1),
+      THREE.MathUtils.randFloat(0.28, 0.45),
+      THREE.MathUtils.randFloat(0.2, 0.5)
+    ),
+    roughness: 0.96,
+    metalness: 0.02,
+    transparent: true,
+    opacity: 1,
+  });
+  return new THREE.Mesh(geometry, material);
+}
+
+function spawnExplosionShockwave(delayMs) {
+  const shockwaveGeometry = new THREE.TorusGeometry(1.06, 0.03, 10, 80);
+  const shockwaveMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffaa66,
+    transparent: true,
+    opacity: 0.95,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    toneMapped: false,
+  });
+  const shockwave = new THREE.Mesh(shockwaveGeometry, shockwaveMaterial);
+  shockwave.rotation.set(
+    THREE.MathUtils.randFloat(0, Math.PI),
+    THREE.MathUtils.randFloat(0, Math.PI),
+    THREE.MathUtils.randFloat(0, Math.PI)
+  );
+  explosionFxLayer.add(shockwave);
+  activeExplosionShockwaves.push({
+    mesh: shockwave,
+    geometry: shockwaveGeometry,
+    material: shockwaveMaterial,
+    startMs: performance.now() + delayMs,
+    durationMs: EARTH_SHOCKWAVE_DURATION_MS,
+  });
+}
+
+function spawnExplosionFlash() {
+  const flashGeometry = new THREE.SphereGeometry(1.15, 24, 24);
+  const flashMaterial = new THREE.MeshBasicMaterial({
+    color: 0xfff0d0,
+    transparent: true,
+    opacity: 0.95,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    toneMapped: false,
+  });
+  const flash = new THREE.Mesh(flashGeometry, flashMaterial);
+  explosionFxLayer.add(flash);
+  activeExplosionFlashes.push({
+    mesh: flash,
+    geometry: flashGeometry,
+    material: flashMaterial,
+    startMs: performance.now(),
+    durationMs: EARTH_FLASH_DURATION_MS,
+  });
+}
+
+function clearExplosionVisuals() {
+  for (let i = 0; i < activeEarthDebris.length; i += 1) {
+    const debris = activeEarthDebris[i];
+    earthDebrisLayer.remove(debris.mesh);
+    if (debris.mesh.geometry) debris.mesh.geometry.dispose();
+    if (debris.mesh.material) debris.mesh.material.dispose();
+  }
+  activeEarthDebris.length = 0;
+
+  for (let i = 0; i < activeExplosionShockwaves.length; i += 1) {
+    const shockwave = activeExplosionShockwaves[i];
+    explosionFxLayer.remove(shockwave.mesh);
+    shockwave.geometry.dispose();
+    shockwave.material.dispose();
+  }
+  activeExplosionShockwaves.length = 0;
+
+  for (let i = 0; i < activeExplosionFlashes.length; i += 1) {
+    const flash = activeExplosionFlashes[i];
+    explosionFxLayer.remove(flash.mesh);
+    flash.geometry.dispose();
+    flash.material.dispose();
+  }
+  activeExplosionFlashes.length = 0;
+}
+
+function resetEarthAfterExplosion() {
+  clearExplosionVisuals();
+  earthExplosionTriggered = false;
+  earthLaserHitCount = 0;
+  lastDestructiveEffectsUpdateMs = performance.now();
+  earthResetTimeoutId = null;
+  if (typeof planetVisuals.resetImpactDamage === 'function') {
+    planetVisuals.resetImpactDamage();
+  }
+
+  planetVisuals.globe.visible = true;
+  if (planetVisuals.cloudLayer) {
+    planetVisuals.cloudLayer.visible = true;
+  }
+  if (planetVisuals.atmosphereLayer) {
+    planetVisuals.atmosphereLayer.visible = true;
+  }
+  if (stormSystem && stormSystem.group) {
+    stormSystem.group.visible = true;
+  }
+
+  clearOrbit();
+  clearSelectedSatelliteState();
+  resetCameraToDefaultViewImmediate();
+  loadSatellites(currentGroup);
+}
+
+function triggerEarthExplosion() {
+  if (earthExplosionTriggered) {
+    return;
+  }
+
+  earthExplosionTriggered = true;
+  if (satelliteLoadController) {
+    satelliteLoadController.abort();
+  }
+  if (earthResetTimeoutId) {
+    clearTimeout(earthResetTimeoutId);
+  }
+  clearOrbit();
+  clearSelectedSatelliteState();
+  planetVisuals.globe.visible = false;
+  if (planetVisuals.cloudLayer) {
+    planetVisuals.cloudLayer.visible = false;
+  }
+  if (planetVisuals.atmosphereLayer) {
+    planetVisuals.atmosphereLayer.visible = false;
+  }
+  if (stormSystem && stormSystem.group) {
+    stormSystem.group.visible = false;
+  }
+  if (satInstancedMesh) {
+    satInstancedMesh.visible = false;
+  }
+  for (let i = 0; i < activeSatellites.length; i += 1) {
+    if (activeSatellites[i].trailLine) {
+      activeSatellites[i].trailLine.visible = false;
+    }
+  }
+  spawnExplosionFlash();
+  for (let i = 0; i < EARTH_SHOCKWAVE_COUNT; i += 1) {
+    spawnExplosionShockwave(i * 130);
+  }
+
+  for (let i = 0; i < EARTH_DEBRIS_COUNT; i += 1) {
+    const piece = createEarthDebrisPiece();
+    const direction = new THREE.Vector3(
+      THREE.MathUtils.randFloatSpread(2),
+      THREE.MathUtils.randFloatSpread(2),
+      THREE.MathUtils.randFloatSpread(2)
+    ).normalize();
+    const tangentJitter = new THREE.Vector3(
+      THREE.MathUtils.randFloatSpread(0.08),
+      THREE.MathUtils.randFloatSpread(0.08),
+      THREE.MathUtils.randFloatSpread(0.08)
+    );
+    const velocity = direction
+      .clone()
+      .multiplyScalar(THREE.MathUtils.randFloat(EARTH_DEBRIS_MIN_SPEED, EARTH_DEBRIS_MAX_SPEED))
+      .add(tangentJitter);
+
+    piece.position.copy(direction).multiplyScalar(1.01);
+    piece.rotation.set(
+      THREE.MathUtils.randFloat(0, Math.PI * 2),
+      THREE.MathUtils.randFloat(0, Math.PI * 2),
+      THREE.MathUtils.randFloat(0, Math.PI * 2)
+    );
+
+    earthDebrisLayer.add(piece);
+    activeEarthDebris.push({
+      mesh: piece,
+      velocity,
+      rotVelocity: new THREE.Vector3(
+        THREE.MathUtils.randFloatSpread(3.5),
+        THREE.MathUtils.randFloatSpread(3.5),
+        THREE.MathUtils.randFloatSpread(3.5)
+      ),
+      startMs: performance.now(),
+      durationMs: THREE.MathUtils.randFloat(EARTH_DEBRIS_MIN_LIFETIME_MS, EARTH_DEBRIS_MAX_LIFETIME_MS),
+    });
+  }
+
+  earthResetTimeoutId = setTimeout(() => {
+    resetEarthAfterExplosion();
+  }, EARTH_RESET_DELAY_MS);
+}
+
+function spawnLaserBeam(startWorldPoint, endWorldPoint, onImpact) {
+  const direction = endWorldPoint.clone().sub(startWorldPoint);
+  const totalLength = direction.length();
+  if (totalLength <= 0.00001) {
+    return;
+  }
+
+  direction.normalize();
+
+  const beamCoreGeometry = new THREE.CylinderGeometry(LASER_CORE_RADIUS, LASER_CORE_RADIUS, totalLength, 8, 1, true);
+  const beamCoreMaterial = new THREE.MeshBasicMaterial({
+    color: 0xff8a91,
     transparent: true,
     opacity: 0.95,
     blending: THREE.AdditiveBlending,
@@ -988,24 +1232,106 @@ function spawnLaserBeam(startWorldPoint, endWorldPoint) {
     toneMapped: false,
   });
 
-  const beam = new THREE.Line(beamGeometry, beamMaterial);
-  scene.add(beam);
+  const beamGlowGeometry = new THREE.CylinderGeometry(LASER_GLOW_RADIUS, LASER_GLOW_RADIUS, totalLength, 12, 1, true);
+  const beamGlowMaterial = new THREE.MeshBasicMaterial({
+    color: 0xff4f63,
+    transparent: true,
+    opacity: 0.45,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    toneMapped: false,
+  });
+
+  const beamCore = new THREE.Mesh(beamCoreGeometry, beamCoreMaterial);
+  const beamGlow = new THREE.Mesh(beamGlowGeometry, beamGlowMaterial);
+  beamCore.renderOrder = 7;
+  beamGlow.renderOrder = 6;
+
+  const beamHeadGeometry = new THREE.SphereGeometry(0.014, 14, 12);
+  const beamHeadMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffc7cd,
+    transparent: true,
+    opacity: 0.95,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    toneMapped: false,
+  });
+  const beamHead = new THREE.Mesh(beamHeadGeometry, beamHeadMaterial);
+  beamHead.renderOrder = 8;
+
+  const muzzleGeometry = new THREE.SphereGeometry(LASER_MUZZLE_RADIUS, 14, 12);
+  const muzzleMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffb4be,
+    transparent: true,
+    opacity: 0.9,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    toneMapped: false,
+  });
+  const muzzle = new THREE.Mesh(muzzleGeometry, muzzleMaterial);
+  muzzle.position.copy(startWorldPoint);
+  muzzle.renderOrder = 9;
+
+  const muzzleRingGeometry = new THREE.TorusGeometry(LASER_MUZZLE_RADIUS * 0.95, 0.0022, 8, 40);
+  const muzzleRingMaterial = new THREE.MeshBasicMaterial({
+    color: 0xff7b8c,
+    transparent: true,
+    opacity: 0.85,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    toneMapped: false,
+  });
+  const muzzleRing = new THREE.Mesh(muzzleRingGeometry, muzzleRingMaterial);
+  muzzleRing.position.copy(startWorldPoint);
+  muzzleRing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+  muzzleRing.renderOrder = 8;
+
+  scene.add(beamGlow);
+  scene.add(beamCore);
+  scene.add(beamHead);
+  scene.add(muzzle);
+  scene.add(muzzleRing);
 
   activeLaserEffects.push({
-    beam,
-    beamGeometry,
-    beamMaterial,
+    beamCore,
+    beamCoreGeometry,
+    beamCoreMaterial,
+    beamGlow,
+    beamGlowGeometry,
+    beamGlowMaterial,
+    beamHead,
+    beamHeadGeometry,
+    beamHeadMaterial,
+    muzzle,
+    muzzleGeometry,
+    muzzleMaterial,
+    muzzleRing,
+    muzzleRingGeometry,
+    muzzleRingMaterial,
+    startPoint: startWorldPoint.clone(),
+    direction,
+    totalLength,
     startMs: performance.now(),
-    durationMs: 190,
+    chargeDurationMs: LASER_CHARGE_DURATION_MS,
+    durationMs: LASER_BEAM_DURATION_MS,
+    impactTriggered: false,
+    onImpact: typeof onImpact === 'function' ? onImpact : null,
   });
 }
 
-function spawnImpactPulse(surfaceNormal) {
-  const pulseGeometry = new THREE.RingGeometry(0.006, 0.016, 36);
+function spawnImpactPulse(surfaceNormal, options = {}) {
+  const innerRadius = options.innerRadius ?? 0.006;
+  const outerRadius = options.outerRadius ?? 0.016;
+  const color = options.color ?? 0x8f7e68;
+  const durationMs = options.durationMs ?? 340;
+  const startOpacity = options.startOpacity ?? 0.58;
+  const scaleMultiplier = options.scaleMultiplier ?? 4;
+
+  const pulseGeometry = new THREE.RingGeometry(innerRadius, outerRadius, 36);
   const pulseMaterial = new THREE.MeshBasicMaterial({
-    color: 0x8f7e68,
+    color,
     transparent: true,
-    opacity: 0.58,
+    opacity: startOpacity,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     toneMapped: false,
@@ -1023,26 +1349,86 @@ function spawnImpactPulse(surfaceNormal) {
     pulseGeometry,
     pulseMaterial,
     startMs: performance.now(),
-    durationMs: 340,
+    durationMs,
+    startOpacity,
+    scaleMultiplier,
   });
 }
 
 function updateDestructiveEffects() {
   const nowMs = performance.now();
+  const deltaSec = Math.min((nowMs - lastDestructiveEffectsUpdateMs) / 1000, 0.05);
+  lastDestructiveEffectsUpdateMs = nowMs;
 
   for (let i = activeLaserEffects.length - 1; i >= 0; i -= 1) {
     const effect = activeLaserEffects[i];
-    const progress = (nowMs - effect.startMs) / effect.durationMs;
+    const elapsedMs = nowMs - effect.startMs;
+    const chargeProgress = THREE.MathUtils.clamp(elapsedMs / effect.chargeDurationMs, 0, 1);
+    const beamProgress = THREE.MathUtils.clamp((elapsedMs - effect.chargeDurationMs) / effect.durationMs, 0, 1);
 
-    if (progress >= 1) {
-      scene.remove(effect.beam);
-      effect.beamGeometry.dispose();
-      effect.beamMaterial.dispose();
+    effect.muzzle.position.copy(effect.startPoint);
+    effect.muzzle.scale.setScalar(1 + (0.75 * chargeProgress));
+    effect.muzzleMaterial.opacity = 0.85 * (1 - chargeProgress * 0.45);
+    effect.muzzleRing.position.copy(effect.startPoint);
+    effect.muzzleRing.scale.setScalar(1 + (1.8 * chargeProgress));
+    effect.muzzleRingMaterial.opacity = 0.78 * (1 - chargeProgress);
+
+    const isBeamActive = elapsedMs >= effect.chargeDurationMs;
+    effect.beamCore.visible = isBeamActive;
+    effect.beamGlow.visible = isBeamActive;
+    effect.beamHead.visible = isBeamActive;
+
+    if (beamProgress >= 1 && !effect.impactTriggered) {
+      effect.impactTriggered = true;
+      if (effect.onImpact) {
+        effect.onImpact();
+      }
+    }
+
+    if (elapsedMs >= effect.chargeDurationMs + effect.durationMs) {
+      scene.remove(effect.beamCore);
+      scene.remove(effect.beamGlow);
+      scene.remove(effect.beamHead);
+      scene.remove(effect.muzzle);
+      scene.remove(effect.muzzleRing);
+      effect.beamCoreGeometry.dispose();
+      effect.beamCoreMaterial.dispose();
+      effect.beamGlowGeometry.dispose();
+      effect.beamGlowMaterial.dispose();
+      effect.beamHeadGeometry.dispose();
+      effect.beamHeadMaterial.dispose();
+      effect.muzzleGeometry.dispose();
+      effect.muzzleMaterial.dispose();
+      effect.muzzleRingGeometry.dispose();
+      effect.muzzleRingMaterial.dispose();
       activeLaserEffects.splice(i, 1);
       continue;
     }
 
-    effect.beamMaterial.opacity = 0.95 * (1 - progress);
+    const traveledLength = effect.totalLength * beamProgress;
+    const halfVisibleLength = Math.max(0.0001, traveledLength * 0.5);
+    const centerPoint = effect.startPoint
+      .clone()
+      .addScaledVector(effect.direction, halfVisibleLength);
+    const orientation = new THREE.Quaternion().setFromUnitVectors(
+      new THREE.Vector3(0, 1, 0),
+      effect.direction
+    );
+
+    effect.beamCore.position.copy(centerPoint);
+    effect.beamGlow.position.copy(centerPoint);
+    effect.beamCore.quaternion.copy(orientation);
+    effect.beamGlow.quaternion.copy(orientation);
+    effect.beamCore.scale.set(1, Math.max(0.0001, beamProgress), 1);
+    effect.beamGlow.scale.set(1, Math.max(0.0001, beamProgress), 1);
+
+    effect.beamHead.position.copy(effect.startPoint).addScaledVector(effect.direction, traveledLength);
+    const fade = 1 - beamProgress;
+    effect.beamCoreMaterial.opacity = 0.95 * fade;
+    effect.beamGlowMaterial.opacity = 0.5 * fade;
+    effect.beamHeadMaterial.opacity = 0.95 * fade;
+    const headScale = 1 + (0.45 * fade);
+    effect.beamHead.scale.setScalar(headScale);
   }
 
   for (let i = activeImpactEffects.length - 1; i >= 0; i -= 1) {
@@ -1057,29 +1443,116 @@ function updateDestructiveEffects() {
       continue;
     }
 
-    effect.pulse.scale.setScalar(1 + progress * 4);
-    effect.pulseMaterial.opacity = 0.58 * (1 - progress);
+    effect.pulse.scale.setScalar(1 + progress * effect.scaleMultiplier);
+    effect.pulseMaterial.opacity = effect.startOpacity * (1 - progress);
+  }
+
+  for (let i = 0; i < activeEarthDebris.length; i += 1) {
+    const debris = activeEarthDebris[i];
+    const progress = (nowMs - debris.startMs) / debris.durationMs;
+
+    if (progress >= 1) {
+      earthDebrisLayer.remove(debris.mesh);
+      if (debris.mesh.geometry) debris.mesh.geometry.dispose();
+      if (debris.mesh.material) debris.mesh.material.dispose();
+      activeEarthDebris.splice(i, 1);
+      i -= 1;
+      continue;
+    }
+
+    debris.mesh.position.addScaledVector(debris.velocity, deltaSec);
+    debris.mesh.rotation.x += debris.rotVelocity.x * deltaSec;
+    debris.mesh.rotation.y += debris.rotVelocity.y * deltaSec;
+    debris.mesh.rotation.z += debris.rotVelocity.z * deltaSec;
+    debris.velocity.multiplyScalar(0.999);
+    if (debris.mesh.material) {
+      debris.mesh.material.opacity = 1 - progress;
+    }
+  }
+
+  for (let i = activeExplosionShockwaves.length - 1; i >= 0; i -= 1) {
+    const shockwave = activeExplosionShockwaves[i];
+    const elapsedMs = nowMs - shockwave.startMs;
+    if (elapsedMs < 0) {
+      shockwave.mesh.visible = false;
+      continue;
+    }
+    shockwave.mesh.visible = true;
+    const progress = elapsedMs / shockwave.durationMs;
+    if (progress >= 1) {
+      explosionFxLayer.remove(shockwave.mesh);
+      shockwave.geometry.dispose();
+      shockwave.material.dispose();
+      activeExplosionShockwaves.splice(i, 1);
+      continue;
+    }
+    const eased = 1 - Math.pow(1 - progress, 2);
+    const scale = 1 + (eased * 4.8);
+    shockwave.mesh.scale.setScalar(scale);
+    shockwave.material.opacity = 0.9 * (1 - progress);
+  }
+
+  for (let i = activeExplosionFlashes.length - 1; i >= 0; i -= 1) {
+    const flash = activeExplosionFlashes[i];
+    const progress = (nowMs - flash.startMs) / flash.durationMs;
+    if (progress >= 1) {
+      explosionFxLayer.remove(flash.mesh);
+      flash.geometry.dispose();
+      flash.material.dispose();
+      activeExplosionFlashes.splice(i, 1);
+      continue;
+    }
+    const size = 1 + (progress * 3.2);
+    flash.mesh.scale.setScalar(size);
+    flash.material.opacity = 0.95 * (1 - progress);
   }
 }
 
 function fireSatelliteLaserAt(targetWorldPoint) {
+    if (earthExplosionTriggered) {
+        return;
+    }
+
+    if (!selectedSatellite || !satInstancedMesh) {
+      return;
+    }
+
     const impactLocalPoint = planetVisuals.globe.worldToLocal(targetWorldPoint.clone());
     const surfaceNormal = impactLocalPoint.normalize();
+    const impactWorldPoint = planetVisuals.globe.localToWorld(surfaceNormal.clone().multiplyScalar(1.006));
 
-    planetVisuals.applyImpactDamage(surfaceNormal);
-    spawnImpactPulse(surfaceNormal);
+    const tempMatrix = new THREE.Matrix4();
+    const satelliteWorldPos = new THREE.Vector3();
+    satInstancedMesh.getMatrixAt(selectedSatellite.index, tempMatrix);
+    satelliteWorldPos.setFromMatrixPosition(tempMatrix);
 
-    if (selectedSatellite) {
-        // 1. EXTRACT POSITION FROM INSTANCED MESH
-        const tempMatrix = new THREE.Matrix4();
-        const satelliteWorldPos = new THREE.Vector3();
-        satInstancedMesh.getMatrixAt(selectedSatellite.index, tempMatrix);
-        satelliteWorldPos.setFromMatrixPosition(tempMatrix);
+    spawnLaserBeam(satelliteWorldPos, impactWorldPoint, () => {
+      if (earthExplosionTriggered) {
+        return;
+      }
+      planetVisuals.applyImpactDamage(surfaceNormal);
+      spawnImpactPulse(surfaceNormal, {
+        innerRadius: 0.008,
+        outerRadius: 0.03,
+        color: 0xffb68a,
+        durationMs: 520,
+        startOpacity: 0.78,
+        scaleMultiplier: 6.2,
+      });
+      spawnImpactPulse(surfaceNormal, {
+        innerRadius: 0.004,
+        outerRadius: 0.015,
+        color: 0xffe2ba,
+        durationMs: 300,
+        startOpacity: 0.7,
+        scaleMultiplier: 3.8,
+      });
+      earthLaserHitCount += 1;
 
-        // 2. USE EXTRACTED POSITION
-        const impactWorldPoint = planetVisuals.globe.localToWorld(surfaceNormal.clone().multiplyScalar(1.006));
-        spawnLaserBeam(satelliteWorldPos, impactWorldPoint);
-    }
+      if (earthLaserHitCount >= EARTH_HITS_TO_EXPLODE) {
+        triggerEarthExplosion();
+      }
+    });
 }
 
 function fireSelectedSatelliteLaser() {
@@ -1479,6 +1952,15 @@ function animateCameraToDefaultView() {
   };
 
   animateCamera();
+}
+
+function resetCameraToDefaultViewImmediate() {
+  isAnimatingCameraRef.current = false;
+  controls.enabled = true;
+  camera.position.copy(defaultCameraPosition);
+  controls.target.copy(defaultCameraTarget);
+  camera.lookAt(defaultCameraTarget);
+  controls.update();
 }
 
 function clearSelectedSatelliteState() {
