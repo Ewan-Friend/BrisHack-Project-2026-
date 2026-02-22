@@ -581,17 +581,17 @@ export function ensureTopBarStyles() {
       align-items: center;
       gap: 8px;
       position: relative;
-      padding-bottom: 4px;
+      padding-bottom: 6px;
     }
 
     #topBar h1::after {
       content: "";
       position: absolute;
-      left: 0;
-      width: 155%;
+      left: 6px;
+      width: 228%;
       bottom: 0;
-      height: 2px;
-      background: linear-gradient(to right, rgba(24, 245, 255, 0.5), rgba(24, 245, 255, 0));
+      height: 3px;
+      background: linear-gradient(to right, rgba(24, 245, 255, 0.7), rgba(24, 245, 255, 0));
       pointer-events: none;
     }
 
