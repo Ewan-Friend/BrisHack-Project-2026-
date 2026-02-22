@@ -1010,7 +1010,17 @@ function updateSatelliteCallout() {
     calloutLayout.initialized = false;
     return;
   }
-
+  if (showOrbitButton) {
+    showOrbitButton.disabled = false;
+    // Update button text/active state based on whether this specific sat is orbiting
+    if (selectedSatellite && orbitingSatId === selectedSatellite.id) {
+        showOrbitButton.textContent = 'Hide Orbit';
+        showOrbitButton.classList.add('active');
+    } else {
+        showOrbitButton.textContent = 'Show Orbit';
+        showOrbitButton.classList.remove('active');
+    }
+  }
   if (isAnimatingCameraRef.current) {
     infoBox.classList.remove('visible');
     if (fireLaserButton) {
@@ -1306,6 +1316,9 @@ function clearSelectedSatelliteState() {
   if (fireLaserButton) {
     fireLaserButton.disabled = true;
   }
+  if (showOrbitButton) {
+    showOrbitButton.disabled = true;
+  }
 }
 
 function resetCameraToStartView() {
@@ -1360,6 +1373,118 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
   planetVisuals.onResize(window.innerWidth, window.innerHeight);
   sharedTrailMaterial.resolution.set(window.innerWidth, window.innerHeight);
+});
+
+
+// 1. Add references and state at the top with other UI variables
+const showOrbitButton = document.getElementById('showOrbitButton');
+let currentOrbitLine = null;
+let orbitingSatId = null;
+
+// 2. Add helper to clear the orbit
+function clearOrbit() {
+  if (currentOrbitLine) {
+    scene.remove(currentOrbitLine);
+    if (currentOrbitLine.geometry) currentOrbitLine.geometry.dispose();
+    currentOrbitLine = null;
+  }
+  orbitingSatId = null;
+  if (showOrbitButton) {
+    showOrbitButton.textContent = 'Show Orbit';
+    showOrbitButton.classList.remove('active');
+  }
+}
+
+// 3. Add function to generate full orbital path points
+function generateOrbitPoints(satrec, periodMinutes) {
+  const points = [];
+  const segments = 120; // smoothness of the circle
+  const startMs = virtualTimeMs; // Use the current simulation time as start
+  
+  for (let i = 0; i <= segments; i++) {
+    const timeOffset = (i / segments) * periodMinutes * 60 * 1000;
+    const time = new Date(startMs + timeOffset);
+    const posAndVel = satellite.propagate(satrec, time);
+    
+    if (posAndVel.position) {
+      const gmst = satellite.gstime(time);
+      const posGd = satellite.eciToGeodetic(posAndVel.position, gmst);
+      const r = 1 + (posGd.height / EARTH_RADIUS_KM);
+      
+      points.push(
+        r * Math.cos(posGd.latitude) * Math.cos(posGd.longitude),
+        r * Math.sin(posGd.latitude),
+        r * Math.cos(posGd.latitude) * Math.sin(-posGd.longitude)
+      );
+    }
+  }
+  return points;
+}
+
+// 4. Update selectSatellite or camera logic to handle the "Zoom Out"
+function zoomToOrbit(sat) {
+  isAnimatingCameraRef.current = true;
+  controls.enabled = false;
+  
+  const tempMatrix = new THREE.Matrix4();
+  const satPos = new THREE.Vector3();
+  satInstancedMesh.getMatrixAt(sat.index, tempMatrix);
+  satPos.setFromMatrixPosition(tempMatrix);
+
+  // Zoom further out to see the full orbit (roughly 3.0 units from center)
+  const targetCameraPos = satPos.clone().normalize().multiplyScalar(3.2);
+  const startTime = Date.now();
+  const startPos = camera.position.clone();
+
+  const animate = () => {
+    const progress = Math.min((Date.now() - startTime) / 1000, 1);
+    const ease = 1 - Math.pow(1 - progress, 3);
+    camera.position.lerpVectors(startPos, targetCameraPos, ease);
+    camera.lookAt(0, 0, 0);
+    if (progress < 1) requestAnimationFrame(animate);
+    else {
+      isAnimatingCameraRef.current = false;
+      controls.enabled = true;
+    }
+  };
+  animate();
+}
+
+// 5. Wire up the button event listener
+showOrbitButton.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (!selectedSatellite) return;
+
+  if (orbitingSatId === selectedSatellite.id) {
+    clearOrbit();
+  } else {
+    // Clear existing orbit if another was selected
+    clearOrbit();
+    
+    const satData = satelliteDataMap[selectedSatellite.id];
+    const period = satData.MEAN_MOTION ? (1440 / satData.MEAN_MOTION) : 90;
+    const points = generateOrbitPoints(selectedSatellite.satrec, period);
+    
+    const geometry = new LineGeometry();
+    geometry.setPositions(points);
+    
+    const material = new LineMaterial({
+      color: getSatelliteColorHex(satData),
+      linewidth: 2,
+      resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
+      transparent: true,
+      opacity: 0.6
+    });
+
+    currentOrbitLine = new Line2(geometry, material);
+    scene.add(currentOrbitLine);
+    orbitingSatId = selectedSatellite.id;
+    
+    showOrbitButton.textContent = 'Hide Orbit';
+    showOrbitButton.classList.add('active');
+    
+    zoomToOrbit(selectedSatellite);
+  }
 });
 
 // --- Animation Loop ---
