@@ -337,7 +337,7 @@ function getSatelliteCountryKey(jsonData) {
 
   // 6. Indian
   // GSLV
-  if (name.includes('GSLV')) {
+  if (name.includes('GSLV') || name.includes('INSAT')) {
     return 'india';
   }
 
@@ -1176,7 +1176,7 @@ function selectSatellite(sat) {
     targetSatPosition.setFromMatrixPosition(tempMatrix);
 
     // Zoom into the satellite
-    const zoomDistance = 0.3; // How close to get to satellite
+    const zoomDistance = 0.45; // How close to get to satellite
     const duration = 1000; // milliseconds
     const startTime = Date.now();
 
