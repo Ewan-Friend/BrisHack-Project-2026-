@@ -455,6 +455,21 @@ export function mountPlaybackSection({ onMultiplierChange, onJumpToPresent }) {
   wrapper.className = 'playback-panel';
   wrapper.setAttribute('data-collapsed', 'false');
 
+  function preventPlaybackPinchZoom(event) {
+    if (event.touches && event.touches.length > 1) {
+      event.preventDefault();
+    }
+  }
+
+  if (window.matchMedia('(pointer: coarse)').matches) {
+    // Keep one-finger slider/scroll gestures, but block two-finger pinch zoom on this panel.
+    wrapper.addEventListener('touchstart', preventPlaybackPinchZoom, { passive: false });
+    wrapper.addEventListener('touchmove', preventPlaybackPinchZoom, { passive: false });
+    ['gesturestart', 'gesturechange', 'gestureend'].forEach((eventName) => {
+      wrapper.addEventListener(eventName, (event) => event.preventDefault(), { passive: false });
+    });
+  }
+
   const topRow = document.createElement('div');
   topRow.className = 'playback-top-row';
 
