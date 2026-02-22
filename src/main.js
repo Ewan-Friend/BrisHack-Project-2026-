@@ -207,6 +207,38 @@ if (window.matchMedia('(pointer: coarse)').matches) {
   renderer.domElement.addEventListener(eventName, (event) => event.preventDefault(), { passive: false });
 });
 
+function setupUiPinchZoomGuard() {
+  if (!window.matchMedia('(pointer: coarse)').matches) {
+    return;
+  }
+
+  const isUiTarget = (target) => {
+    if (!(target instanceof Element)) {
+      return false;
+    }
+    // Keep pinch/zoom gestures available on the 3D canvas itself.
+    return !target.closest('#canvas');
+  };
+
+  const preventUiPinchZoom = (event) => {
+    if (event.touches && event.touches.length > 1 && isUiTarget(event.target)) {
+      event.preventDefault();
+    }
+  };
+
+  document.addEventListener('touchstart', preventUiPinchZoom, { passive: false, capture: true });
+  document.addEventListener('touchmove', preventUiPinchZoom, { passive: false, capture: true });
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach((eventName) => {
+    document.addEventListener(eventName, (event) => {
+      if (isUiTarget(event.target)) {
+        event.preventDefault();
+      }
+    }, { passive: false, capture: true });
+  });
+}
+
+setupUiPinchZoomGuard();
+
 addUserLocationMarker(scene);
 
 // --- Raycaster for click detection ---
