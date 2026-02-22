@@ -57,8 +57,8 @@ exploring the wonders of our orbital advancements as we have!
         
 ## Dev team roles
         
-- Ewan Friend: Created this about page! also established the API connections between the CelestTrak telemetry data, the backend, and the frontend. Also added the user location pointer as well as scoping animation (some ui bits too)
-- Michael Li: Developed the 3D graphics and rendering, performance engineering.
+- Ewan Friend: Created this about page! Established the API connections between layers, UI animations.
+- Michael Li: Developed the 3D graphics and rendering, performance engineering and mobile support.
 - Jacob Pankowski: Implemented satellite tracking and orbital calculations.
 - Kyrian Salas: Backend API development and database management, DevOps. 
 - Sam Bunting: Designed user interface (UI) and enhanced user experience (UX), incorporated Open API support.
