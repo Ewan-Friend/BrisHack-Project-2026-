@@ -2221,7 +2221,7 @@ function deselectSatellite() {
   if (isAnimatingCameraRef.current) {
     return;
   }
-
+  clearOrbit();
   clearSelectedSatelliteState();
   animateCameraToDefaultView();
 }
