@@ -15,7 +15,7 @@
 - [How It Works](#how-it-works)
 - [Project Origins](#project-origins)
 - [Dev team roles](#dev-team-roles)
-- [Fun Facts!](#fun-facts)
+- [Facts about satellites](#here-are-some-facts-about-satellites)
 - [License](#license)
 
 ## About NavSat
@@ -51,7 +51,7 @@ found whenever you click on a satellite.
         
 ## Project Origins
         
-NavSat was developed for BrisHack 2026 by Ewan Friend, Michael Li, Kyrian Salas, Sam Bunting, Jacob Pankowski as an exploration of 
+NavSat was developed for BrisHack 2026, a 24 hour Hackathon held at the University of Bristol by Ewan Friend, Michael Li, Kyrian Salas, Sam Bunting, Jacob Pankowski as an exploration of 
 space technology. We have tried our best to make the interface as engaging as possible to our users, and  we hope you guys enjoy 
 exploring the wonders of our orbital advancements as we have!
         
@@ -63,18 +63,18 @@ exploring the wonders of our orbital advancements as we have!
 - Kyrian Salas: Backend API development and database management, DevOps. 
 - Sam Bunting: Designed user interface (UI) and enhanced user experience (UX), incorporated Open API support.
         
-## Fun Facts!
+## Here are some facts about satellites!
         
--After an aggresive launching campaign, Starlink satellites comprise approximately 65% of all active satellites in low Earth orbit
--In 1957, Sputnik 1 became the first ever satellite to be launched into Earths orbit
--After the successful launch of the first, Sputnik 2 became the second satellite to be launched into orbit, also becoming the first
-to carry an animal into orbit, that being Laika: 'the space dog'
+- After an aggresive launching campaign, Starlink satellites comprise approximately 65% of all active satellites in low Earth orbit. They provide high-speed, low-latency broadband internet to users worldwide, particularly in remote or underserved locations
+- In 1957, Sputnik 1 became the first ever satellite to be launched into Earths orbit
+- After the successful launch of the first, Sputnik 2 became the second satellite to be launched into orbit, also becoming the first
+to carry an animal into orbit, that being Laika: 'the space dog.' Unfortunately she was never intended to survive the one-way mission, tragically dying within hours of launch
 
--In order to remain in low earth orbit, a satellite has to travel at 17450 miles per hour, a farther satellite will need to travel
+- In order to remain in low earth orbit, a satellite has to travel at 17450 miles per hour, a farther satellite will need to travel
 slower, a geostationary satellite only travels at around 6568 miles per hour
 
--The first military satellite, GRAB 1, was launched by the US in 1960, it was designed to intercept Soviet radar signals from above
--When a satellite reaches the end of its lifespan, it is often moved to a 'graveyard orbit' to avoid collitions with satellites that
+- The first military satellite, GRAB 1, was launched by the US in 1960, it was designed to intercept Soviet radar signals from above
+- When a satellite reaches the end of its lifespan, it is often moved to a 'graveyard orbit' to avoid collitions with satellites that
 still operational; Other satellites are designed to burn up upon re-entry into Earths atmosphere to reduce space debris
    
 Data sourced from [CelesTrak](https://celestrak.org/NORAD/documentation/gp-data-formats.php)
