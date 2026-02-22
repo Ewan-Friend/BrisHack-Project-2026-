@@ -215,6 +215,9 @@ const mouse = new THREE.Vector2();
 let selectedSatellite = null;
 let selectedStorm = null;
 const isAnimatingCameraRef = { current: false };
+const mobileFollowMatrix = new THREE.Matrix4();
+const mobileFollowSatPosition = new THREE.Vector3();
+const mobileFollowDesiredCameraPosition = new THREE.Vector3();
 
 // --- User location ---
 let location = null
@@ -1783,6 +1786,41 @@ function updateSatelliteCallout() {
   infoBox.classList.add('visible');
 }
 
+function updateMobileSelectedSatelliteFollow() {
+  if (!isCoarsePointerDevice || !selectedSatellite || !satInstancedMesh) {
+    return;
+  }
+
+  if (isAnimatingCameraRef.current) {
+    return;
+  }
+
+  // Keep orbit preview behavior unchanged when zoomed out to show full orbit.
+  if (orbitingSatId === selectedSatellite.id) {
+    return;
+  }
+
+  // Selected satellite mode keeps controls disabled; follow while in this mode.
+  if (controls.enabled) {
+    return;
+  }
+
+  satInstancedMesh.getMatrixAt(selectedSatellite.index, mobileFollowMatrix);
+  mobileFollowSatPosition.setFromMatrixPosition(mobileFollowMatrix);
+  const satRadius = mobileFollowSatPosition.length();
+  if (satRadius <= 0.0001) {
+    return;
+  }
+
+  mobileFollowDesiredCameraPosition
+    .copy(mobileFollowSatPosition)
+    .normalize()
+    .multiplyScalar(satRadius + 0.45);
+
+  camera.position.lerp(mobileFollowDesiredCameraPosition, 0.18);
+  camera.lookAt(0, 0, 0);
+}
+
 function onCanvasClick(event) {
   if (isAnimatingCameraRef.current) return;
 
@@ -2160,6 +2198,7 @@ showOrbitButton.addEventListener('click', (e) => {
 
 renderer.setAnimationLoop(() => {
     updateSatellites();
+    updateMobileSelectedSatelliteFollow();
     if (sidebarManager) {
         sidebarManager.updateSimulationClock(virtualTimeMs);
     }
