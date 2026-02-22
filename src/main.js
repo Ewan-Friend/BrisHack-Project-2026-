@@ -296,9 +296,14 @@ function measureCalloutTitleWidth(text) {
 const dummy = new THREE.Object3D();
 let satInstancedMesh;
 const RENDER_TRAILS_THRESHOLD = 500;
-const SATELLITE_UPDATE_INTERVAL_MS = 120;
+const SATELLITE_UPDATE_INTERVAL_MS = 16;
 const OFFSCREEN_UPDATE_INTERVAL_MS = 450;
 const OFFSCREEN_UPDATE_BATCH_SIZE = 450;
+const MIN_OFFSCREEN_UPDATE_INTERVAL_MS = 90;
+const MAX_OFFSCREEN_BATCH_MULTIPLIER = 4;
+const SATELLITE_VISIBILITY_NDC_MARGIN = 0.35;
+const SATELLITE_VISIBILITY_Z_MARGIN = 0.25;
+const SATELLITE_VISIBILITY_GRACE_MS = 1000;
 const EARTH_RADIUS_KM = 6371;
 
 const sharedSatGeometry = new THREE.SphereGeometry(0.005, 8, 8);
@@ -411,19 +416,30 @@ function getSatelliteColorHex(jsonData) {
   }
 }
 
-function isSatelliteLikelyVisible(sat) {
+function isSatelliteLikelyVisible(sat, nowMs) {
   if (!sat.worldPosition) {
     return true;
   }
   visibilityProbeNdc.copy(sat.worldPosition).project(camera);
-  return (
-    visibilityProbeNdc.z > -1 &&
-    visibilityProbeNdc.z < 1 &&
-    visibilityProbeNdc.x > -1.1 &&
-    visibilityProbeNdc.x < 1.1 &&
-    visibilityProbeNdc.y > -1.1 &&
-    visibilityProbeNdc.y < 1.1
+  const isInExpandedViewport = (
+    visibilityProbeNdc.z > (-1 - SATELLITE_VISIBILITY_Z_MARGIN) &&
+    visibilityProbeNdc.z < (1 + SATELLITE_VISIBILITY_Z_MARGIN) &&
+    visibilityProbeNdc.x > (-1 - SATELLITE_VISIBILITY_NDC_MARGIN) &&
+    visibilityProbeNdc.x < (1 + SATELLITE_VISIBILITY_NDC_MARGIN) &&
+    visibilityProbeNdc.y > (-1 - SATELLITE_VISIBILITY_NDC_MARGIN) &&
+    visibilityProbeNdc.y < (1 + SATELLITE_VISIBILITY_NDC_MARGIN)
   );
+
+  if (isInExpandedViewport) {
+    sat.lastLikelyVisibleMs = nowMs;
+    return true;
+  }
+
+  if (sat.lastLikelyVisibleMs && (nowMs - sat.lastLikelyVisibleMs) < SATELLITE_VISIBILITY_GRACE_MS) {
+    return true;
+  }
+
+  return false;
 }
 
 function getFilteredSatelliteKeys() {
@@ -768,7 +784,7 @@ function updateSatellites() {
             highPriority.push(sat);
             continue;
         }
-        if (isSatelliteLikelyVisible(sat)) {
+        if (isSatelliteLikelyVisible(sat, nowMs)) {
             highPriority.push(sat);
         } else {
             offscreen.push(sat);
@@ -780,8 +796,20 @@ function updateSatellites() {
         didUpdateMatrix = updateSatelliteState(highPriority[i]) || didUpdateMatrix;
     }
 
-    if (offscreen.length > 0 && (nowMs - lastOffscreenUpdateMs) >= OFFSCREEN_UPDATE_INTERVAL_MS) {
-        const batchSize = Math.min(offscreen.length, OFFSCREEN_UPDATE_BATCH_SIZE);
+    const warpFactor = Math.max(1, Math.abs(timeMultiplier));
+    const adaptiveOffscreenIntervalMs = Math.max(
+        MIN_OFFSCREEN_UPDATE_INTERVAL_MS,
+        OFFSCREEN_UPDATE_INTERVAL_MS / warpFactor
+    );
+    const adaptiveBatchSize = Math.min(
+        offscreen.length,
+        Math.ceil(
+            OFFSCREEN_UPDATE_BATCH_SIZE * Math.min(MAX_OFFSCREEN_BATCH_MULTIPLIER, Math.sqrt(warpFactor))
+        )
+    );
+
+    if (offscreen.length > 0 && (nowMs - lastOffscreenUpdateMs) >= adaptiveOffscreenIntervalMs) {
+        const batchSize = adaptiveBatchSize;
         for (let j = 0; j < batchSize; j++) {
             const offscreenIndex = (offscreenUpdateCursor + j) % offscreen.length;
             didUpdateMatrix = updateSatelliteState(offscreen[offscreenIndex]) || didUpdateMatrix;
