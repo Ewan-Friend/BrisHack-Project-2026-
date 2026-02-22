@@ -182,7 +182,9 @@ function initializeSidebar() {
         timeMultiplier = multiplier;
     },
     onJumpToPresent: () => {
-      virtualTimeMs = Date.now(); // Reset virtual clock to real world time
+      virtualTimeMs = Date.now();
+       // Reset virtual clock to real world time
+       // Set the time back to normal speed
     },
     onSelectSatellite: (sat) => {
       if (typeof selectSatellite === 'function') {
@@ -836,6 +838,10 @@ function updateSatellites() {
     // Advance the virtual clock (e.g., if multiplier is 10, time moves 10x faster)
     virtualTimeMs += deltaRealTimeMs * timeMultiplier;
 
+    if (earthExplosionTriggered) {
+      return;
+    }
+
     const warpFactor = Math.min(
         MAX_TIME_MULTIPLIER_FOR_FASTEST_UPDATES,
         Math.max(1, Math.abs(timeMultiplier))
@@ -1106,6 +1112,9 @@ const EARTH_SHOCKWAVE_COUNT = 4;
 const EARTH_SHOCKWAVE_DURATION_MS = 1700;
 const EARTH_FLASH_DURATION_MS = 720;
 const EARTH_RESET_DELAY_MS = 5500;
+const SATELLITE_EXPLOSION_MIN_SPEED = 0.25;
+const SATELLITE_EXPLOSION_MAX_SPEED = 0.85;
+const SATELLITE_EXPLOSION_LIFETIME_MS = 5200;
 const LASER_CHARGE_DURATION_MS = 120;
 const LASER_BEAM_DURATION_MS = 320;
 const LASER_CORE_RADIUS = 0.0038;
@@ -1215,6 +1224,10 @@ function resetEarthAfterExplosion() {
   earthLaserHitCount = 0;
   lastDestructiveEffectsUpdateMs = performance.now();
   earthResetTimeoutId = null;
+  for (let i = 0; i < activeSatellites.length; i += 1) {
+    delete activeSatellites[i].explosionVelocity;
+    delete activeSatellites[i].explosionStartMs;
+  }
   if (typeof planetVisuals.resetImpactDamage === 'function') {
     planetVisuals.resetImpactDamage();
   }
@@ -1230,6 +1243,10 @@ function resetEarthAfterExplosion() {
     stormSystem.group.visible = true;
   }
 
+  if (satInstancedMesh) {
+    satInstancedMesh.visible = true;
+  }
+
   clearOrbit();
   clearSelectedSatelliteState();
   resetCameraToDefaultViewImmediate();
@@ -1239,6 +1256,10 @@ function resetEarthAfterExplosion() {
 function triggerEarthExplosion() {
   if (earthExplosionTriggered) {
     return;
+  }
+  // Zoom out when focused on a satellite
+  if (selectedSatellite || selectedStorm){
+    deselectSatellite();
   }
 
   earthExplosionTriggered = true;
@@ -1260,13 +1281,45 @@ function triggerEarthExplosion() {
   if (stormSystem && stormSystem.group) {
     stormSystem.group.visible = false;
   }
-  if (satInstancedMesh) {
-    satInstancedMesh.visible = false;
-  }
   for (let i = 0; i < activeSatellites.length; i += 1) {
     if (activeSatellites[i].trailLine) {
       activeSatellites[i].trailLine.visible = false;
     }
+  }
+  if (satInstancedMesh) {
+    satInstancedMesh.visible = true;
+  }
+  const explosionNowMs = performance.now();
+  const tempMatrix = new THREE.Matrix4();
+  const tempPos = new THREE.Vector3();
+  for (let i = 0; i < activeSatellites.length; i += 1) {
+    const sat = activeSatellites[i];
+    if (sat.worldPosition) {
+      tempPos.copy(sat.worldPosition);
+    } else if (satInstancedMesh) {
+      satInstancedMesh.getMatrixAt(sat.index, tempMatrix);
+      tempPos.setFromMatrixPosition(tempMatrix);
+    } else {
+      tempPos.set(THREE.MathUtils.randFloatSpread(1), THREE.MathUtils.randFloatSpread(1), THREE.MathUtils.randFloatSpread(1));
+    }
+
+    if (tempPos.lengthSq() < 0.0001) {
+      tempPos.set(THREE.MathUtils.randFloatSpread(1), THREE.MathUtils.randFloatSpread(1), THREE.MathUtils.randFloatSpread(1));
+    }
+
+    const direction = tempPos.clone().normalize();
+    const jitter = new THREE.Vector3(
+      THREE.MathUtils.randFloatSpread(0.35),
+      THREE.MathUtils.randFloatSpread(0.35),
+      THREE.MathUtils.randFloatSpread(0.35)
+    );
+
+    sat.worldPosition = tempPos.clone();
+    sat.explosionVelocity = direction
+      .add(jitter)
+      .normalize()
+      .multiplyScalar(THREE.MathUtils.randFloat(SATELLITE_EXPLOSION_MIN_SPEED, SATELLITE_EXPLOSION_MAX_SPEED));
+    sat.explosionStartMs = explosionNowMs;
   }
   spawnExplosionFlash();
   for (let i = 0; i < EARTH_SHOCKWAVE_COUNT; i += 1) {
@@ -1463,6 +1516,32 @@ function updateDestructiveEffects() {
   const deltaSec = Math.min((nowMs - lastDestructiveEffectsUpdateMs) / 1000, 0.05);
   lastDestructiveEffectsUpdateMs = nowMs;
 
+  if (earthExplosionTriggered && satInstancedMesh) {
+    let didUpdate = false;
+    for (let i = 0; i < activeSatellites.length; i += 1) {
+      const sat = activeSatellites[i];
+      if (!sat.explosionVelocity || !sat.worldPosition) {
+        continue;
+      }
+
+      const lifeProgress = (nowMs - sat.explosionStartMs) / SATELLITE_EXPLOSION_LIFETIME_MS;
+      if (lifeProgress >= 1) {
+        continue;
+      }
+
+      sat.worldPosition.addScaledVector(sat.explosionVelocity, deltaSec);
+      dummy.position.copy(sat.worldPosition);
+      dummy.scale.setScalar(1 - Math.min(lifeProgress, 1));
+      dummy.updateMatrix();
+      satInstancedMesh.setMatrixAt(sat.index, dummy.matrix);
+      didUpdate = true;
+    }
+
+    if (didUpdate) {
+      satInstancedMesh.instanceMatrix.needsUpdate = true;
+    }
+  }
+
   for (let i = activeLaserEffects.length - 1; i >= 0; i -= 1) {
     const effect = activeLaserEffects[i];
     const elapsedMs = nowMs - effect.startMs;
@@ -1652,6 +1731,7 @@ function fireSatelliteLaserAt(targetWorldPoint) {
       });
       earthLaserHitCount += 1;
 
+      // After a certain amount of laser hits, THE PLANET BLOWS UP
       if (earthLaserHitCount >= EARTH_HITS_TO_EXPLODE) {
         triggerEarthExplosion();
       }

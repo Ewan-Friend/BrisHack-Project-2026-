@@ -571,7 +571,10 @@ export function mountPlaybackSection({ onMultiplierChange, onJumpToPresent }) {
     slider.value = String(DEFAULT_MULTIPLIER);
     emitMultiplier();
   });
-  jumpBtn.addEventListener('click', () => onJumpToPresent());
+  jumpBtn.addEventListener('click', () => {
+    slider.value = String(DEFAULT_MULTIPLIER);
+    emitMultiplier();
+    onJumpToPresent()});
 
   syncSpeedUI(slider.value);
   btnContainer.append(resetBtn, jumpBtn);
