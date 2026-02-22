@@ -166,6 +166,29 @@
       a:hover {
         opacity: 0.8;
       }
+
+      body.is-embedded::before,
+      body.is-embedded header,
+      body.is-embedded footer {
+        display: none;
+      }
+
+      body.is-embedded {
+        min-height: auto;
+        background-image: none;
+        background-color: #02060f;
+      }
+
+      body.is-embedded main {
+        max-width: 900px;
+        margin: 18px auto 24px;
+        padding: 0 20px;
+      }
+
+      body.is-embedded .section {
+        margin-bottom: 26px;
+        padding: 18px 0 !important;
+      }
     </style>
   </head>
   <body>
@@ -176,7 +199,7 @@
           NavSat
         </h1>
         <nav>
-          <a href="/"> Back To Map </a>
+          <a id="backToMapLink" href="/"> Back To Map </a>
         </nav>
       </div>
     </header>
@@ -276,11 +299,16 @@
       </p>
     </footer>
     <script>
-      window.addEventListener('scroll', () => {
-        const scrollY = window.scrollY;
-        const parallaxOffset = scrollY * 0.1;
-        document.body.style.backgroundPosition = `center ${-parallaxOffset}px`;
-      });
+      const isEmbedded = window.location.hash.includes('embedded');
+      if (isEmbedded) {
+        document.body.classList.add('is-embedded');
+      } else {
+        window.addEventListener('scroll', () => {
+          const scrollY = window.scrollY;
+          const parallaxOffset = scrollY * 0.1;
+          document.body.style.backgroundPosition = `center ${-parallaxOffset}px`;
+        });
+      }
     </script>
   </body>
 </html>

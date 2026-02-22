@@ -14,11 +14,13 @@ import { setupCountrySelector } from './widgets/countrySelector.js';
 import { ensureTopBarStyles } from './widgets/ui/styles.js';
 import { setupStormMarkers } from './widgets/stormMarkers.js';
 import { setupSatelliteLegend } from './widgets/satelliteLegend.js';
+import { setupAboutOverlay } from './widgets/aboutOverlay.js';
 import * as service from './api/satelliteService.js'
 import { select } from 'three/tsl';
 
 // Apply styles
 ensureTopBarStyles();
+setupAboutOverlay();
 
 // --- Renderer ---
 
