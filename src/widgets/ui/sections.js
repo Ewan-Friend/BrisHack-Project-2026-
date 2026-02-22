@@ -429,6 +429,10 @@ export function mountPlaybackSection({ onMultiplierChange, onJumpToPresent }) {
   const wrapper = document.createElement('div');
   wrapper.id = 'top-playback-controls';
   wrapper.className = 'playback-panel';
+  wrapper.setAttribute('data-collapsed', 'false');
+
+  const topRow = document.createElement('div');
+  topRow.className = 'playback-top-row';
 
   const clockContainer = document.createElement('div');
   clockContainer.className = 'playback-clock';
@@ -440,6 +444,16 @@ export function mountPlaybackSection({ onMultiplierChange, onJumpToPresent }) {
   clockDate.className = 'playback-clock__date';
 
   clockContainer.append(clockTime, clockDate);
+
+  const collapseButton = document.createElement('button');
+  collapseButton.type = 'button';
+  collapseButton.className = 'playback-collapse-toggle';
+  collapseButton.setAttribute('aria-label', 'Collapse time controls');
+  collapseButton.setAttribute('aria-expanded', 'true');
+  collapseButton.title = 'Collapse time controls';
+  collapseButton.textContent = '-';
+
+  topRow.append(clockContainer, collapseButton);
 
   const slider = document.createElement('input');
   slider.type = 'range';
@@ -464,6 +478,8 @@ export function mountPlaybackSection({ onMultiplierChange, onJumpToPresent }) {
 
   const btnContainer = document.createElement('div');
   btnContainer.className = 'playback-buttons';
+  const controlsBody = document.createElement('div');
+  controlsBody.className = 'playback-content';
 
   const resetBtn = document.createElement('button');
   resetBtn.type = 'button';
@@ -497,9 +513,21 @@ export function mountPlaybackSection({ onMultiplierChange, onJumpToPresent }) {
     onMultiplierChange(syncSpeedUI(slider.value));
   }
 
+  function setCollapsed(collapsed) {
+    const isCollapsed = Boolean(collapsed);
+    wrapper.classList.toggle('is-collapsed', isCollapsed);
+    wrapper.setAttribute('data-collapsed', String(isCollapsed));
+    collapseButton.setAttribute('aria-expanded', String(!isCollapsed));
+    collapseButton.title = isCollapsed ? 'Expand time controls' : 'Collapse time controls';
+    collapseButton.textContent = isCollapsed ? '+' : '-';
+  }
+
   // Event Listeners
   slider.addEventListener('input', emitMultiplier);
   slider.addEventListener('change', emitMultiplier);
+  collapseButton.addEventListener('click', () => {
+    setCollapsed(!wrapper.classList.contains('is-collapsed'));
+  });
   resetBtn.addEventListener('click', () => {
     slider.value = String(DEFAULT_MULTIPLIER);
     emitMultiplier();
@@ -508,7 +536,9 @@ export function mountPlaybackSection({ onMultiplierChange, onJumpToPresent }) {
 
   syncSpeedUI(slider.value);
   btnContainer.append(resetBtn, jumpBtn);
-  wrapper.append(clockContainer, metaRow, slider, btnContainer);
+  controlsBody.append(metaRow, slider, btnContainer);
+  wrapper.append(topRow, controlsBody);
+  setCollapsed(false);
 
   return {
     element: wrapper,

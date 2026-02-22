@@ -44,6 +44,7 @@ export class UIManager {
     this.collapseButton = null;
     this.sidebarShell = null;
     this.isCollapsed = false;
+    this.lastClockSecond = null;
 
     this.onMultiplierChange = onMultiplierChange;
     this.onJumpToPresent = onJumpToPresent;
@@ -88,6 +89,11 @@ export class UIManager {
 
   updateSimulationClock(timestamp) {
     if (this.playbackControls && this.playbackControls.updateClock) {
+      const secondBucket = Math.floor(timestamp / 1000);
+      if (secondBucket === this.lastClockSecond) {
+        return;
+      }
+      this.lastClockSecond = secondBucket;
       this.playbackControls.updateClock(timestamp);
     }
   }

@@ -627,45 +627,109 @@ export function ensureTopBarStyles() {
     #top-playback-controls {
       position: absolute;
       top: 58px;
-      left: 12px;
+      left: 2px;
       z-index: 1000;
     }
 
     .playback-panel {
-      width: min(338px, calc(100vw - 24px));
+      width: min(248px, calc(100vw - 24px));
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      padding: 10px;
-      border-radius: 12px;
+      gap: 6px;
+      padding: 8px 9px;
+      border-radius: 10px;
       border: 1px solid rgba(154, 193, 245, 0.28);
       background: linear-gradient(160deg, rgba(13, 23, 42, 0.86), rgba(9, 17, 31, 0.62));
-      box-shadow: 0 8px 18px rgba(2, 6, 16, 0.38);
+      box-shadow: 0 6px 14px rgba(2, 6, 16, 0.34);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
       pointer-events: auto;
       font-family: "Electrolize", "Segoe UI", sans-serif;
     }
 
+    .playback-panel.is-collapsed {
+      gap: 0;
+      padding-top: 7px;
+      padding-bottom: 7px;
+    }
+
+    .playback-top-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
     .playback-clock {
-      text-align: center;
+      text-align: left;
       color: #19f8ff;
       font-variant-numeric: tabular-nums;
       letter-spacing: 0.04em;
+      min-width: 0;
+      flex: 1;
     }
 
     .playback-clock__time {
-      font-size: 1.5rem;
+      font-size: 1.12rem;
       line-height: 1.1;
-      text-shadow: 0 0 8px rgba(26, 248, 255, 0.3);
+      text-shadow: 0 0 6px rgba(26, 248, 255, 0.24);
     }
 
     .playback-clock__date {
-      margin-top: 1px;
+      margin-top: 0;
       color: rgba(205, 224, 245, 0.58);
-      font-size: 0.78rem;
-      letter-spacing: 0.07em;
+      font-size: 0.63rem;
+      letter-spacing: 0.06em;
+    }
+
+    .playback-collapse-toggle {
+      width: 20px;
+      height: 20px;
+      border-radius: 6px;
+      border: 1px solid rgba(156, 200, 255, 0.52);
+      background: rgba(11, 25, 48, 0.86);
+      color: #bfeaff;
+      padding: 0;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .playback-collapse-toggle:hover {
+      background: rgba(20, 45, 80, 0.9);
+      border-color: rgba(200, 227, 255, 0.82);
+    }
+
+    .playback-collapse-toggle:focus-visible {
+      outline: 2px solid rgba(123, 196, 255, 0.82);
+      outline-offset: 1px;
+    }
+
+    .playback-content {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 1px;
+      max-height: 120px;
+      opacity: 1;
+      overflow: hidden;
+      transform: translateY(0) scaleY(1);
+      transform-origin: top;
+      will-change: transform, opacity;
+      contain: layout paint;
+      transition: transform 0.18s ease, opacity 0.14s ease;
+    }
+
+    .playback-panel.is-collapsed .playback-content {
+      max-height: 0;
+      opacity: 0;
+      margin-top: 0;
+      transform: translateY(-3px) scaleY(0.94);
+      pointer-events: none;
     }
 
     .playback-meta {
@@ -673,20 +737,20 @@ export function ensureTopBarStyles() {
       align-items: center;
       justify-content: space-between;
       color: rgba(207, 228, 251, 0.88);
-      font-size: 0.7rem;
-      letter-spacing: 0.08em;
+      font-size: 0.58rem;
+      letter-spacing: 0.07em;
       text-transform: uppercase;
     }
 
     .playback-meta__speed {
       color: #9fe8ff;
-      font-size: 0.76rem;
+      font-size: 0.62rem;
     }
 
     .playback-slider {
       --playback-progress: 52.5%;
       width: 100%;
-      margin: 2px 0;
+      margin: 1px 0;
       appearance: none;
       -webkit-appearance: none;
       background: transparent;
@@ -699,7 +763,7 @@ export function ensureTopBarStyles() {
     }
 
     .playback-slider::-webkit-slider-runnable-track {
-      height: 6px;
+      height: 4px;
       border-radius: 999px;
       background:
         linear-gradient(
@@ -714,9 +778,9 @@ export function ensureTopBarStyles() {
 
     .playback-slider::-webkit-slider-thumb {
       -webkit-appearance: none;
-      width: 18px;
-      height: 18px;
-      margin-top: -7px;
+      width: 14px;
+      height: 14px;
+      margin-top: -5px;
       border-radius: 50%;
       border: 2px solid #45a3ff;
       background: #0d1a2d;
@@ -731,21 +795,21 @@ export function ensureTopBarStyles() {
     }
 
     .playback-slider::-moz-range-track {
-      height: 6px;
+      height: 4px;
       border-radius: 999px;
       background: rgba(152, 174, 201, 0.38);
       border: 0;
     }
 
     .playback-slider::-moz-range-progress {
-      height: 6px;
+      height: 4px;
       border-radius: 999px;
       background: #45a3ff;
     }
 
     .playback-slider::-moz-range-thumb {
-      width: 16px;
-      height: 16px;
+      width: 13px;
+      height: 13px;
       border-radius: 50%;
       border: 2px solid #45a3ff;
       background: #0d1a2d;
@@ -755,19 +819,19 @@ export function ensureTopBarStyles() {
 
     .playback-buttons {
       display: grid;
-      grid-template-columns: 0.55fr 1fr;
-      gap: 7px;
+      grid-template-columns: 50px 1fr;
+      gap: 5px;
     }
 
     .playback-button {
       border: 1px solid rgba(166, 211, 255, 0.52);
-      border-radius: 9px;
+      border-radius: 8px;
       background: rgba(12, 28, 54, 0.78);
       color: #e2efff;
-      padding: 7px 10px;
-      font-size: 11px;
+      padding: 5px 8px;
+      font-size: 10px;
       font-weight: 700;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.05em;
       text-transform: uppercase;
       font-family: "Electrolize", "Segoe UI", sans-serif;
       cursor: pointer;
@@ -796,15 +860,15 @@ export function ensureTopBarStyles() {
 
     @media (max-width: 680px) {
       #top-playback-controls {
-        left: 8px;
+        left: -2px;
       }
 
       .playback-panel {
-        width: min(320px, calc(100vw - 16px));
+        width: min(236px, calc(100vw - 16px));
       }
 
       .playback-clock__time {
-        font-size: 1.3rem;
+        font-size: 1.03rem;
       }
     }
   `;
