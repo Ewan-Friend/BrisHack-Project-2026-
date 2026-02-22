@@ -60,7 +60,7 @@ function isPrimaryUnmodifiedClick(event) {
 }
 
 export function setupAboutOverlay() {
-  const aboutLink = document.querySelector('#topBar a[href="/about"], #topBar a[href="/about.html"]');
+  const aboutLink = document.querySelector('#topBar a[href="#about"], #topBar a[href="/about"], #topBar a[href="/about.html"]');
   if (!aboutLink) {
     return null;
   }
