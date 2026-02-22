@@ -619,20 +619,194 @@ export function ensureTopBarStyles() {
       width: 30px;
     }
 
-canvas {
-  display: block;
-  margin-top: 0;
-}
-.playback-slider::-webkit-slider-thumb:hover {
-  background: #0056b3;
-}
-  #top-playback-controls {
-  position: absolute;
-  top: 60px; /* Adjust based on your top-bar height */
-  left: 20px; /* Align with your NavSat title */
-  z-index: 1000;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-}
+    canvas {
+      display: block;
+      margin-top: 0;
+    }
+
+    #top-playback-controls {
+      position: absolute;
+      top: 58px;
+      left: 12px;
+      z-index: 1000;
+    }
+
+    .playback-panel {
+      width: min(338px, calc(100vw - 24px));
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(154, 193, 245, 0.28);
+      background: linear-gradient(160deg, rgba(13, 23, 42, 0.86), rgba(9, 17, 31, 0.62));
+      box-shadow: 0 8px 18px rgba(2, 6, 16, 0.38);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      pointer-events: auto;
+      font-family: "Electrolize", "Segoe UI", sans-serif;
+    }
+
+    .playback-clock {
+      text-align: center;
+      color: #19f8ff;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.04em;
+    }
+
+    .playback-clock__time {
+      font-size: 1.5rem;
+      line-height: 1.1;
+      text-shadow: 0 0 8px rgba(26, 248, 255, 0.3);
+    }
+
+    .playback-clock__date {
+      margin-top: 1px;
+      color: rgba(205, 224, 245, 0.58);
+      font-size: 0.78rem;
+      letter-spacing: 0.07em;
+    }
+
+    .playback-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: rgba(207, 228, 251, 0.88);
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .playback-meta__speed {
+      color: #9fe8ff;
+      font-size: 0.76rem;
+    }
+
+    .playback-slider {
+      --playback-progress: 52.5%;
+      width: 100%;
+      margin: 2px 0;
+      appearance: none;
+      -webkit-appearance: none;
+      background: transparent;
+      accent-color: #2c8eff;
+      cursor: pointer;
+    }
+
+    .playback-slider:focus-visible {
+      outline: none;
+    }
+
+    .playback-slider::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 999px;
+      background:
+        linear-gradient(
+          90deg,
+          #45a3ff 0%,
+          #45a3ff var(--playback-progress),
+          rgba(152, 174, 201, 0.38) var(--playback-progress),
+          rgba(152, 174, 201, 0.38) 100%
+        );
+      border: 0;
+    }
+
+    .playback-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      margin-top: -7px;
+      border-radius: 50%;
+      border: 2px solid #45a3ff;
+      background: #0d1a2d;
+      box-shadow: none;
+      transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .playback-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.06);
+      border-color: #74bdff;
+      background: #13233b;
+    }
+
+    .playback-slider::-moz-range-track {
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(152, 174, 201, 0.38);
+      border: 0;
+    }
+
+    .playback-slider::-moz-range-progress {
+      height: 6px;
+      border-radius: 999px;
+      background: #45a3ff;
+    }
+
+    .playback-slider::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 2px solid #45a3ff;
+      background: #0d1a2d;
+      box-shadow: none;
+      transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .playback-buttons {
+      display: grid;
+      grid-template-columns: 0.55fr 1fr;
+      gap: 7px;
+    }
+
+    .playback-button {
+      border: 1px solid rgba(166, 211, 255, 0.52);
+      border-radius: 9px;
+      background: rgba(12, 28, 54, 0.78);
+      color: #e2efff;
+      padding: 7px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-family: "Electrolize", "Segoe UI", sans-serif;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+    }
+
+    .playback-button--primary {
+      border-color: rgba(129, 200, 255, 0.78);
+      color: #bcecff;
+      box-shadow: inset 0 0 14px rgba(30, 109, 185, 0.24);
+    }
+
+    .playback-button:hover {
+      background: rgba(20, 45, 80, 0.9);
+      border-color: rgba(200, 227, 255, 0.82);
+    }
+
+    .playback-button:active {
+      transform: translateY(1px);
+    }
+
+    .playback-button:focus-visible {
+      outline: 2px solid rgba(123, 196, 255, 0.82);
+      outline-offset: 1px;
+    }
+
+    @media (max-width: 680px) {
+      #top-playback-controls {
+        left: 8px;
+      }
+
+      .playback-panel {
+        width: min(320px, calc(100vw - 16px));
+      }
+
+      .playback-clock__time {
+        font-size: 1.3rem;
+      }
+    }
   `;
 
   document.head.appendChild(styleTag);

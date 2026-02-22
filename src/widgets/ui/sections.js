@@ -422,66 +422,104 @@ export function mountFooterControlsSection({
  * Mounts the Playback Control section under the Top Bar
  */
 export function mountPlaybackSection({ onMultiplierChange, onJumpToPresent }) {
+  const DEFAULT_MULTIPLIER = 1;
+  const MIN_MULTIPLIER = -20;
+  const MAX_MULTIPLIER = 20;
+
   const wrapper = document.createElement('div');
   wrapper.id = 'top-playback-controls';
-  // Styling for the floating container
-  Object.assign(wrapper.style, {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-    padding: '12px',
-    background: 'rgba(10, 10, 10, 0.85)',
-    backdropFilter: 'blur(8px)',
-    border: '1px solid rgba(0, 255, 255, 0.2)',
-    borderRadius: '0 0 8px 8px',
-    width: '240px',
-    pointerEvents: 'auto'
-  });
+  wrapper.className = 'playback-panel';
 
   const clockContainer = document.createElement('div');
-  clockContainer.style.fontFamily = '"Courier New", monospace';
-  clockContainer.style.fontSize = '1.1rem';
-  clockContainer.style.color = '#00ffff';
-  clockContainer.style.textAlign = 'center';
+  clockContainer.className = 'playback-clock';
+
+  const clockTime = document.createElement('div');
+  clockTime.className = 'playback-clock__time';
+
+  const clockDate = document.createElement('div');
+  clockDate.className = 'playback-clock__date';
+
+  clockContainer.append(clockTime, clockDate);
 
   const slider = document.createElement('input');
   slider.type = 'range';
-  slider.min = '-50';
-  slider.max = '50';
-  slider.value = '1';
-  slider.style.width = '100%';
+  slider.min = String(MIN_MULTIPLIER);
+  slider.max = String(MAX_MULTIPLIER);
+  slider.step = '0.1';
+  slider.value = String(DEFAULT_MULTIPLIER);
+  slider.className = 'playback-slider';
+  slider.setAttribute('aria-label', 'Time speed multiplier');
+
+  const metaRow = document.createElement('div');
+  metaRow.className = 'playback-meta';
+
+  const speedLabel = document.createElement('span');
+  speedLabel.className = 'playback-meta__label';
+  speedLabel.textContent = 'Speed';
+
+  const speedValue = document.createElement('span');
+  speedValue.className = 'playback-meta__speed';
+
+  metaRow.append(speedLabel, speedValue);
 
   const btnContainer = document.createElement('div');
-  btnContainer.style.display = 'flex';
-  btnContainer.style.gap = '5px';
+  btnContainer.className = 'playback-buttons';
 
   const resetBtn = document.createElement('button');
+  resetBtn.type = 'button';
   resetBtn.textContent = '1x';
-  resetBtn.className = 'ui-button';
-  resetBtn.style.flex = '1';
+  resetBtn.className = 'playback-button';
 
   const jumpBtn = document.createElement('button');
+  jumpBtn.type = 'button';
   jumpBtn.textContent = 'Jump to Now';
-  jumpBtn.className = 'ui-button';
-  jumpBtn.style.flex = '2';
+  jumpBtn.className = 'playback-button playback-button--primary';
+
+  function formatMultiplier(value) {
+    const rounded = Math.round(value * 10) / 10;
+    if (Math.abs(rounded) < 0.05) {
+      return '0';
+    }
+    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  }
+
+  function syncSpeedUI(rawValue) {
+    const value = Number.parseFloat(rawValue);
+    const min = Number.parseFloat(slider.min);
+    const max = Number.parseFloat(slider.max);
+    const progress = ((value - min) / (max - min)) * 100;
+    slider.style.setProperty('--playback-progress', `${progress}%`);
+    speedValue.textContent = `${formatMultiplier(value)}x`;
+    return value;
+  }
+
+  function emitMultiplier() {
+    onMultiplierChange(syncSpeedUI(slider.value));
+  }
 
   // Event Listeners
-  slider.addEventListener('input', (e) => onMultiplierChange(parseFloat(e.target.value)));
+  slider.addEventListener('input', emitMultiplier);
+  slider.addEventListener('change', emitMultiplier);
   resetBtn.addEventListener('click', () => {
-    slider.value = 1;
-    onMultiplierChange(1);
+    slider.value = String(DEFAULT_MULTIPLIER);
+    emitMultiplier();
   });
   jumpBtn.addEventListener('click', () => onJumpToPresent());
 
+  syncSpeedUI(slider.value);
   btnContainer.append(resetBtn, jumpBtn);
-  wrapper.append(clockContainer, slider, btnContainer);
+  wrapper.append(clockContainer, metaRow, slider, btnContainer);
 
   return {
     element: wrapper,
     updateClock: (ts) => {
       const date = new Date(ts);
-      clockContainer.innerHTML = `<div>${date.toLocaleTimeString('en-GB')}</div><div style="font-size: 0.7rem; color: #888;">${date.toLocaleDateString('en-GB')}</div>`;
+      clockTime.textContent = date.toLocaleTimeString('en-GB');
+      clockDate.textContent = date.toLocaleDateString('en-GB');
     },
-    setSlider: (val) => { slider.value = val; }
+    setSlider: (val) => {
+      slider.value = String(val);
+      syncSpeedUI(slider.value);
+    }
   };
 }

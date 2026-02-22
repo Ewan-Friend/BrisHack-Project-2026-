@@ -131,8 +131,8 @@ export class UIManager {
     onJumpToPresent: () => { this.onJumpToPresent(); }
     });
 
-  // Find your title container or top bar and append
-  const topBar = document.querySelector('.top-bar') || document.body;
+  // Mount under the actual top bar when present.
+  const topBar = document.querySelector('#topBar') || document.body;
   topBar.appendChild(this.playbackControls.element);
     // Mount widgets in the desired visual order
     this.mountSatelliteSearchWidget();
