@@ -74,24 +74,24 @@ async function fetchJson(url, { signal, timeoutMs } = {}) {
 async function fetchSatellitesWithFallback(group, limit, offset, signal) {
   const remoteUrl = buildSatellitesUrl(REMOTE_API_BASE, group, limit, offset);
   console.log(remoteUrl);
-  if (fallback) {
-    return fetchJson(remoteUrl, { signal });
-  }
-
-  const localUrl = buildSatellitesUrl(LOCAL_API_BASE, group, limit, offset);
-  try {
-    return await fetchJson(localUrl, {
-      signal,
-      timeoutMs: LOCAL_REQUEST_TIMEOUT_MS,
-    });
-  } catch (localError) {
-    if (localError?.name === 'AbortError') {
-      throw localError;
-    }
-    console.warn('Local API unavailable. Falling back to remote API...');
-    fallback = true;
-    return fetchJson(remoteUrl, { signal });
-  }
+  // if (fallback) {
+  //   return fetchJson(remoteUrl, { signal });
+  // }
+  return fetchJson(remoteUrl, { signal });
+  // const localUrl = buildSatellitesUrl(LOCAL_API_BASE, group, limit, offset);
+  // try {
+  //   return await fetchJson(localUrl, {
+  //     signal,
+  //     timeoutMs: LOCAL_REQUEST_TIMEOUT_MS,
+  //   });
+  // } catch (localError) {
+  //   if (localError?.name === 'AbortError') {
+  //     throw localError;
+  //   }
+  //   console.warn('Local API unavailable. Falling back to remote API...');
+  //   fallback = true;
+  //   return fetchJson(remoteUrl, { signal });
+  // }
 }
 
 /**
