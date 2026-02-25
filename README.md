@@ -42,7 +42,7 @@ explore the orbits of thousands of active satellites across our planet, where ea
 ## How It Works
 
 NavSat fetches real-time TLE (Two-Line Element) data from CelesTrak, a highly prestigious source for satellite orbital information
-& telemetry. The data collected is ran through multiple orbital calculations such as an SGP4 propagation algorithm via satellite.js,
+& telemetry. The data collected is run through multiple orbital calculations such as an SGP4 propagation algorithm via satellite.js,
 using this we can calculate satellite positions to a tee in real-time.
 	
         
@@ -61,12 +61,12 @@ exploring the wonders of our orbital advancements as we have!
 - Michael Li: Developed the 3D graphics and rendering, performance engineering and mobile support.
 - Jacob Pankowski: Implemented satellite tracking and orbital calculations.
 - Kyrian Salas: Backend API development and database management, DevOps. 
-- Sam Bunting: Designed user interface (UI) and enhanced user experience (UX), incorporated Open API support.
+- Sam Bunting: Designed user interface (UI) and enhanced user experience (UX), incorporated OpenAI API support.
         
 ## Here are some facts about satellites!
         
-- After an aggresive launching campaign, Starlink satellites comprise approximately 65% of all active satellites in low Earth orbit. They provide high-speed, low-latency broadband internet to users worldwide, particularly in remote or underserved locations
-- In 1957, Sputnik 1 became the first ever satellite to be launched into Earths orbit
+- After an aggressive launching campaign, Starlink satellites comprise approximately 65% of all active satellites in low Earth orbit. They provide high-speed, low-latency broadband internet to users worldwide, particularly in remote or underserved locations
+- In 1957, Sputnik 1 became the first ever satellite to be launched into Earth's orbit
 - After the successful launch of the first, Sputnik 2 became the second satellite to be launched into orbit, also becoming the first
 to carry an animal into orbit, that being Laika: 'the space dog.' Unfortunately she was never intended to survive the one-way mission, tragically dying within hours of launch
 
@@ -74,8 +74,8 @@ to carry an animal into orbit, that being Laika: 'the space dog.' Unfortunately 
 slower, a geostationary satellite only travels at around 6568 miles per hour
 
 - The first military satellite, GRAB 1, was launched by the US in 1960, it was designed to intercept Soviet radar signals from above
-- When a satellite reaches the end of its lifespan, it is often moved to a 'graveyard orbit' to avoid collitions with satellites that
-still operational; Other satellites are designed to burn up upon re-entry into Earths atmosphere to reduce space debris
+- When a satellite reaches the end of its lifespan, it is often moved to a 'graveyard orbit' to avoid collisions with satellites that
+ still operational; Other satellites are designed to burn up upon re-entry into Earth's atmosphere to reduce space debris
    
 Data sourced from [CelesTrak](https://celestrak.org/NORAD/documentation/gp-data-formats.php)
 Orbit calculations via [satellite.js](https://github.com/shashwatak/satellite-js)
